@@ -6,7 +6,12 @@ services:
     restart: unless-stopped
     mem_limit: 512m
     environment:
-      DATABASE_URL: ${DATABASE_URL}
+      # Construida a partir de las credenciales, no tomada de ${DATABASE_URL}
+      # directamente: "db" (DNS interno de compose) es siempre el host
+      # correcto para el contenedor, sin importar qué DATABASE_URL tenga tu
+      # .env local para herramientas del host (drizzle-kit, `next dev`,
+      # tests) — ver docs/ARCHITECTURE.md.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ironlog}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-ironlog}
       AUTH_SECRET: ${AUTH_SECRET}
       AUTH_URL: ${AUTH_URL}
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}

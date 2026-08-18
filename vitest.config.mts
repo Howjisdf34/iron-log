@@ -13,6 +13,6 @@ export default defineConfig({
     environment: "jsdom",
     pool: "threads",
     include: ["src/**/*.test.{ts,tsx}"],
-    exclude: ["**/node_modules/**", "e2e/**"],
+    exclude: ["**/node_modules/**", "e2e/**", "**/*.integration.test.ts"],
   },
 });

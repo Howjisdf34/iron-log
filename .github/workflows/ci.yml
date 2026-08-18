@@ -8,6 +8,24 @@ on:
 jobs:
   quality:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: ironlog
+          POSTGRES_PASSWORD: ironlog
+          POSTGRES_DB: ironlog
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ironlog"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ironlog:ironlog@localhost:5432/ironlog
+      AUTH_SECRET: ci-only-secret-not-for-production
+      AUTH_URL: http://localhost:3000
     steps:
       - uses: actions/checkout@v4
 
@@ -24,4 +42,6 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+      - run: pnpm db:migrate
+      - run: pnpm test:integration
       - run: pnpm build

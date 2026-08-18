@@ -1,0 +1,14 @@
+# Overlay SÓLO para desarrollo local — expone Postgres al host para poder
+# correr `pnpm dev`, `pnpm db:migrate`, `pnpm test:integration`, etc. desde
+# fuera de Docker. NO se usa en producción/Coolify (docker-compose.yml base
+# nunca expone el puerto de la DB — ver docs/DEPLOY.md).
+#
+# Puerto host 5433 (no 5432): evita chocar con un Postgres nativo que ya
+# esté corriendo en la máquina de desarrollo (frecuente en Windows/macOS).
+# Ajusta tu DATABASE_URL local a .../@localhost:5433/...
+#
+# Uso: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d db
+services:
+  db:
+    ports:
+      - "5433:5432"

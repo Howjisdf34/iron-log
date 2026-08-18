@@ -8,36 +8,49 @@ Ver el brief completo en [`CLAUDE.md`](./CLAUDE.md).
 
 ## Estado
 
-🚧 Fase 0 — scaffolding, Docker, styleguide, health endpoint.
+🚧 Fase 1 — schema completo, migraciones, auth (Auth.js v5 + Argon2id, 2 usuarios).
 
-## Quickstart
+## Quickstart (desarrollo local, `next dev` en el host)
 
 ```bash
 pnpm install
-cp .env.example .env      # ajusta valores si no usas los defaults de docker-compose
-docker compose up -d db   # sólo Postgres, para desarrollar la app con `next dev`
-pnpm dev                  # http://localhost:3000
+cp .env.example .env
+# Ajusta DATABASE_URL a localhost:5433 (puerto del overlay de dev, ver abajo)
+
+# Postgres en Docker, expuesto en el host vía el overlay de desarrollo:
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d db
+
+pnpm db:migrate     # aplica drizzle/*.sql
+pnpm user:create --email tu@correo.com --password "algo-largo" --name "Tú"
+
+pnpm dev            # http://localhost:3000 — te redirige a /login
 ```
 
-Para levantar todo (app + db) en contenedores, tal como corre en producción:
+Para levantar todo (app + db) en contenedores, tal como corre en producción/Coolify —
+migraciones y seed de usuarios corren solos al arrancar (`src/instrumentation.ts`):
 
 ```bash
 docker compose up --build
 ```
 
 `/api/health` debe responder `{ status: "ok", db: "ok", ... }` una vez que ambos
-servicios estén arriba.
+servicios estén arriba. La DB **no** expone puerto al host en este modo (a propósito).
 
 ## Scripts
 
-| Comando                     | Qué hace                     |
-| --------------------------- | ---------------------------- |
-| `pnpm dev`                  | servidor de desarrollo       |
-| `pnpm build` / `pnpm start` | build + server de producción |
-| `pnpm lint`                 | ESLint                       |
-| `pnpm typecheck`            | `tsc --noEmit`               |
-| `pnpm test`                 | Vitest (unit)                |
-| `pnpm format`               | Prettier (escribe)           |
+| Comando                     | Qué hace                                              |
+| --------------------------- | ----------------------------------------------------- |
+| `pnpm dev`                  | servidor de desarrollo                                |
+| `pnpm build` / `pnpm start` | build + server de producción                          |
+| `pnpm lint`                 | ESLint                                                |
+| `pnpm typecheck`            | `tsc --noEmit`                                        |
+| `pnpm test`                 | Vitest (unit, rápido, sin DB)                         |
+| `pnpm test:integration`     | Vitest contra Postgres real (aislamiento por usuario) |
+| `pnpm format`               | Prettier (escribe)                                    |
+| `pnpm db:generate`          | genera una migración a partir del schema              |
+| `pnpm db:migrate`           | aplica migraciones pendientes                         |
+| `pnpm db:studio`            | explorador visual de la DB (Drizzle Studio)           |
+| `pnpm user:create`          | crea uno de los 2 usuarios (sin registro público)     |
 
 ## Stack
 
@@ -49,7 +62,7 @@ Auth.js v5 · Serwist (PWA/SW). Detalle completo y justificación en `CLAUDE.md`
 
 - [`docs/design-system.md`](./docs/design-system.md) — paleta, tipografía, springs.
   Vista viva en `/dev/styleguide` (sólo desarrollo).
-- `docs/schema.md` — diagrama ER (Fase 1).
+- [`docs/schema.md`](./docs/schema.md) — diagrama ER completo (Mermaid).
+- [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) — decisiones técnicas (ADRs cortos).
 - `docs/DEPLOY.md` — despliegue en Coolify (Fase 7).
 - `docs/DATA-SOURCES.md` — fuentes y licencias de ejercicios/media (Fase 2).
-- `docs/ARCHITECTURE.md` — decisiones técnicas (ADRs cortos).

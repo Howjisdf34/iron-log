@@ -74,3 +74,32 @@ Node/pnpm de este proyecto (no requiere instalar un binario adicional fuera de
 `node_modules`), y `lint-staged` cubre exactamente lo que se necesita: ESLint +
 Prettier sólo sobre los archivos en stage, más `tsc --noEmit` para el chequeo
 completo de tipos antes de cada commit.
+
+## ADR-008: Migraciones vía `instrumentation.ts`, no `drizzle-kit migrate` en entrypoint.sh
+
+El brief (§8.3) pedía correr `drizzle-kit migrate` desde `entrypoint.sh` antes de
+arrancar el server. En la práctica (ADR-006b) `drizzle-kit` es devDependency y no
+sobrevive el output tracing de `next build --standalone` — el binario no existe en la
+imagen final. La alternativa correcta con Next.js + Docker standalone es el migrator
+programático de `drizzle-orm/node-postgres/migrator` (`src/db/migrate.ts`), que sí es
+dependencia de producción, invocado desde el hook `register()` de
+`src/instrumentation.ts` — corre una vez al iniciar el proceso, antes de que el server
+acepte tráfico real.
+
+**Trampa real encontrada al verificar con `docker compose up --build` (volumen limpio):**
+Docker Compose lee `.env` del directorio del proyecto para resolver `${VAR}` dentro de
+`docker-compose.yml` — esto es independiente de que la app también lea `.env` vía
+`@next/env`. Como `.env` ahora tiene `DATABASE_URL=...@localhost:5433/...` (para que
+`drizzle-kit`/`next dev`/`pnpm test:integration` corriendo en el HOST lleguen a la DB
+por el overlay de `docker-compose.dev.yml`), pasar `DATABASE_URL: ${DATABASE_URL}` tal
+cual en `docker-compose.yml` filtraba ese `localhost:5433` al contenedor — que
+obviamente no puede resolverlo. Fix: `docker-compose.yml` arma la URL a partir de las
+partes (`POSTGRES_USER`/`PASSWORD`/`DB`) con el host `db` (DNS interno) hardcodeado,
+nunca toma `${DATABASE_URL}` completa. Sólo las credenciales vienen de `.env`/secrets
+de Coolify — el host de conexión no es algo que deba variar por entorno.
+
+Para la protección contra carreras, un advisory lock de Postgres
+(`pg_advisory_lock`) es estrictamente más robusto que el lock de archivo en `/tmp` que
+proponía el brief: funciona incluso si dos contenedores arrancan a la vez apuntando a
+la misma DB, no sólo dentro de un mismo filesystem. `entrypoint.sh` queda reducido a
+`exec node server.js`.
