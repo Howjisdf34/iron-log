@@ -8,7 +8,7 @@ Ver el brief completo en [`CLAUDE.md`](./CLAUDE.md).
 
 ## Estado
 
-🚧 Fase 1 — schema completo, migraciones, auth (Auth.js v5 + Argon2id, 2 usuarios).
+🚧 Fase 2 — pipeline de ejercicios (wger + free-exercise-db), media local, `/creditos`.
 
 ## Quickstart (desarrollo local, `next dev` en el host)
 
@@ -38,19 +38,26 @@ servicios estén arriba. La DB **no** expone puerto al host en este modo (a prop
 
 ## Scripts
 
-| Comando                     | Qué hace                                              |
-| --------------------------- | ----------------------------------------------------- |
-| `pnpm dev`                  | servidor de desarrollo                                |
-| `pnpm build` / `pnpm start` | build + server de producción                          |
-| `pnpm lint`                 | ESLint                                                |
-| `pnpm typecheck`            | `tsc --noEmit`                                        |
-| `pnpm test`                 | Vitest (unit, rápido, sin DB)                         |
-| `pnpm test:integration`     | Vitest contra Postgres real (aislamiento por usuario) |
-| `pnpm format`               | Prettier (escribe)                                    |
-| `pnpm db:generate`          | genera una migración a partir del schema              |
-| `pnpm db:migrate`           | aplica migraciones pendientes                         |
-| `pnpm db:studio`            | explorador visual de la DB (Drizzle Studio)           |
-| `pnpm user:create`          | crea uno de los 2 usuarios (sin registro público)     |
+| Comando                     | Qué hace                                                        |
+| --------------------------- | --------------------------------------------------------------- |
+| `pnpm dev`                  | servidor de desarrollo                                          |
+| `pnpm build` / `pnpm start` | build + server de producción                                    |
+| `pnpm lint`                 | ESLint                                                          |
+| `pnpm typecheck`            | `tsc --noEmit`                                                  |
+| `pnpm test`                 | Vitest (unit, rápido, sin DB)                                   |
+| `pnpm test:integration`     | Vitest contra Postgres real (aislamiento por usuario)           |
+| `pnpm format`               | Prettier (escribe)                                              |
+| `pnpm db:generate`          | genera una migración a partir del schema                        |
+| `pnpm db:migrate`           | aplica migraciones pendientes                                   |
+| `pnpm db:studio`            | explorador visual de la DB (Drizzle Studio)                     |
+| `pnpm user:create`          | crea uno de los 2 usuarios (sin registro público)               |
+| `pnpm seed:exercises`       | puebla el catálogo de ejercicios + descarga/transcodifica media |
+
+`pnpm seed:exercises` acepta `--limit=N` (probar rápido con pocos ejercicios),
+`--skip-media` (sólo DB, sin ffmpeg) y `--force-fetch` (ignora el cache de
+`data/raw/`). Requiere `ffmpeg` en el PATH — ver `FFMPEG_PATH` en `.env.example` si
+no está en el PATH del sistema. Tarda ~30-60 min sin `--limit` (873 ejercicios, ~78
+con video real). Detalle completo en [`docs/DATA-SOURCES.md`](./docs/DATA-SOURCES.md).
 
 ## Stack
 

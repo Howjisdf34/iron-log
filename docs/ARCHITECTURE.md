@@ -120,3 +120,47 @@ Action) DEBE llevar `type="submit"` explícito. El botón de login ya lo tenía 
 casualidad; el de logout no, y fue el bug. Válido para todos los forms del Workout
 Player en Fase 4 (completar serie, guardar nota, etc.) — revisar cada uno al
 construirlo.
+
+## ADR-010: `/media/[...path]/route.ts` necesita `turbopackIgnore` en cada llamada a fs
+
+**Bug real encontrado en Fase 2, antes de commitear:** `pnpm build` compilaba bien y
+sin errores, pero con 5 warnings de Turbopack sobre "dynamic filesystem access". Se
+verificó el impacto real: `.next/standalone` pesaba **1.6 GB** (vs. ~28 MB normal).
+Causa: `mediaRoot()` arma la ruta desde `process.env.MEDIA_DIR` (variable de entorno)
+combinada con segmentos de la URL — el analizador estático de Turbopack no puede
+probar que esa ruta está acotada a una subcarpeta fija, así que por seguridad traza
+**todo el proyecto** (incluido `data/raw/`, que en esta máquina llegó a pesar 1.5 GB
+de cache cruda) dentro del output standalone.
+
+Fix: comentarios `/* turbopackIgnore: true */` en cada llamada a `resolve`/`join`/
+`stat`/`createReadStream` que toca `filePath` — es exactamente lo que sugiere el
+propio mensaje de warning de Next. La seguridad contra path traversal ya la garantiza
+`resolveSafePath` a mano (chequea que el resultado siga empezando con `mediaRoot()`),
+no depende del tracer de Turbopack.
+
+**Regla del proyecto:** cualquier ruta de filesystem construida a partir de una env
+var + input dinámico (no un literal estático) necesita este opt-out explícito. Correr
+`pnpm build` y revisar la sección de warnings de Turbopack antes de cada commit que
+toque acceso a filesystem — un build "exitoso" puede estar ocultando un output 50x
+más pesado de lo debido.
+
+## ADR-011: páginas que leen la DB necesitan `export const dynamic = "force-dynamic"`
+
+**Bug real, encontrado con `docker compose build`** (no con `pnpm build` en el host,
+donde sí había DB alcanzable en `localhost:5433` — por eso no se vio antes): el build
+del `builder` stage de Docker no tiene red hacia Postgres, y `/creditos` tronaba con
+`ECONNREFUSED` durante el build.
+
+Causa: un Server Component async que hace `await db.select()...` sin usar ninguna API
+de Next que dispare dynamic rendering (`cookies()`, `headers()`, `searchParams`, etc.)
+es candidato a **Static Generation** — Next intenta ejecutar el componente UNA VEZ en
+build time y hornear el HTML resultante. `/` no tuvo este problema porque `auth()` lee
+`cookies()` internamente, lo que ya fuerza dynamic rendering; `/creditos` no tenía
+ninguna señal así.
+
+**Regla del proyecto:** toda page/route que le pegue a la DB directamente (sin pasar
+por una API de Next que ya sea dynamic) lleva `export const dynamic = "force-dynamic";`
+explícito. Aplica a todas las páginas de Fase 6 (historial, PRs, gráficas). Verificar
+esto significa correr `docker compose build app` al menos una vez por fase que toque
+páginas nuevas con acceso a DB — `pnpm build` solo, en el host, no lo detecta si tenés
+una DB de desarrollo alcanzable.

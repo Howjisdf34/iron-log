@@ -17,6 +17,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "user:create": "tsx --env-file=.env scripts/create-user.ts",
+    "seed:exercises": "tsx --env-file=.env scripts/seed-exercises.ts",
     "prepare": "husky"
   },
   "lint-staged": {
