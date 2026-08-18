@@ -13,7 +13,7 @@ export default async function Home() {
         <span className="text-foreground">{session?.user?.email}</span>
       </p>
       <form action={logoutAction}>
-        <Button variant="outline" size="touch">
+        <Button type="submit" variant="outline" size="touch">
           Cerrar sesión
         </Button>
       </form>

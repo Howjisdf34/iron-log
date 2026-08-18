@@ -103,3 +103,20 @@ Para la protección contra carreras, un advisory lock de Postgres
 proponía el brief: funciona incluso si dos contenedores arrancan a la vez apuntando a
 la misma DB, no sólo dentro de un mismo filesystem. `entrypoint.sh` queda reducido a
 `exec node server.js`.
+
+## ADR-009: `<Button>` (Base UI) necesita `type="submit"` explícito dentro de un `<form>`
+
+**Footgun real, encontrado en producción por el usuario:** el botón de "Cerrar sesión"
+no hacía nada al hacer click. Causa: `src/components/ui/button.tsx` envuelve
+`Button` de `@base-ui/react/button`, y su hook interno (`useButton`) **hardcodea
+`type: 'button'`** en cualquier botón nativo salvo que el consumidor pase `type`
+explícitamente (`internals/use-button/useButton.js`, línea con
+`isNativeButton ? { type: 'button' } : { role: 'button' }`). Sin `type="submit"`, un
+click nunca dispara el `action` del `<form>` que lo envuelve — sin error en consola,
+sin feedback visual, simplemente no pasa nada.
+
+**Regla del proyecto:** todo `<Button>` que sea el submit de un `<form>` (Server
+Action) DEBE llevar `type="submit"` explícito. El botón de login ya lo tenía por
+casualidad; el de logout no, y fue el bug. Válido para todos los forms del Workout
+Player en Fase 4 (completar serie, guardar nota, etc.) — revisar cada uno al
+construirlo.
