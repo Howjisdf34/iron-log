@@ -164,3 +164,62 @@ explícito. Aplica a todas las páginas de Fase 6 (historial, PRs, gráficas). V
 esto significa correr `docker compose build app` al menos una vez por fase que toque
 páginas nuevas con acceso a DB — `pnpm build` solo, en el host, no lo detecta si tenés
 una DB de desarrollo alcanzable.
+
+## ADR-012: Timer de descanso — timestamp absoluto, no contador
+
+**Requisito no negociable del brief (§5.3, criterio de éxito #4):** el timer tiene que
+seguir siendo correcto aunque se bloquee la pantalla o se mate la pestaña. Un
+`setInterval` que resta 1 segundo cada tick se desincroniza en cuanto el navegador
+throttlea/pausa timers en background (todos lo hacen para ahorrar batería).
+
+Solución: `restEndsAt` es un timestamp absoluto (`Date.now() + duracionMs`), guardado
+en el store de Zustand (`src/lib/stores/workout-store.ts`, persistido a localStorage).
+El componente (`rest-timer.tsx`) nunca cuenta — en cada render calcula
+`restEndsAt - Date.now()`. `useTick` (`src/lib/hooks/use-tick.ts`) sólo fuerza
+re-renders cada 250ms y en `visibilitychange`, para que la UI se actualice; el cálculo
+en sí es sin estado. Volver de background con la pestaña bloqueada 3 minutos muestra el
+tiempo correcto de inmediato, no seguido de un salto.
+
+El anillo SVG anima `stroke-dashoffset` (no `transform`) — excepción deliberada a la
+regla general de "sólo transform/opacity" del §6 del brief, que ahí mismo pide
+explícitamente esta técnica para el anillo de descanso; es una propiedad de pintado,
+no de layout, así que no hay layout thrashing real.
+
+## ADR-013: Fase 4 no es offline — esa garantía llega completa en Fase 5
+
+El Workout Player (Fase 4) registra series vía Server Actions (Postgres directo). El
+criterio de éxito #2 del brief ("funciona al 100% sin internet") **no está cubierto
+todavía**: sin la capa de Dexie/outbox + Service Worker de Fase 5, completar una serie
+sin señal falla. Lo que sí se resolvió en Fase 4, como base para Fase 5:
+
+- El estado persistido en localStorage (`iron-log-workout`) es sólo de navegación/UI
+  (qué sesión, timer de descanso) — nunca datos de entrenamiento, para no tener dos
+  fuentes de verdad compitiendo cuando llegue el outbox real.
+- `startSessionForUser` reutiliza la sesión `in_progress` existente si ya hay una — así
+  ni el banner de "reanudar" ni Fase 5 tienen que lidiar con sesiones huérfanas por
+  dobles taps.
+- `clientId` (uuid v7) ya se genera en cada `set_log`/`workout_session` insertado desde
+  el servidor, dejando la columna lista para cuando el insert se mueva al cliente
+  (Fase 5) sin migración de datos.
+
+## ADR-014: 1RM estimado con fórmula de Epley; PRs de dos tipos en el Player
+
+El brief pide documentar qué fórmula de 1RM se usa (§5.4). Epley
+(`peso × (1 + reps/30)`) se eligió sobre Brzycki por ser más estable en rangos altos de
+reps (Brzycki diverge cerca de 37 reps). Brzycki queda implementada en
+`src/lib/one-rep-max.ts` para la comparativa de Fase 6, pero la detección de PR en vivo
+del Player (`logSetForUser`) sólo compara dos tipos de `personal_records`:
+`1rm_estimated` y `weight` (el peso máximo real levantado, sin importar reps) — un PR
+de "más reps a este peso" o "más volumen" no dispara el toast en Fase 4, se deja para
+las estadísticas de Fase 6, donde tiene más sentido como tabla que como interrupción en
+medio de un set.
+
+## ADR-015: Navegación entre ejercicios con Motion, sin View Transitions API
+
+El brief sugiere View Transitions API con fallback a Motion para el swipe entre
+ejercicios del Player. Motion (`AnimatePresence` + variants de slide) ya cubre la
+transición animada por sí solo; superponer la View Transitions API al mismo cambio de
+índice (no una navegación de página real) arriesga doble animación/parpadeo porque
+ambos sistemas intentarían animar el mismo DOM a la vez. Se deja View Transitions API
+para donde el brief la pide con más claridad — transiciones de página con shared
+element (p. ej. card de rutina → detalle) — no para este caso.

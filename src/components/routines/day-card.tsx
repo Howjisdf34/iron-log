@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { X } from "lucide-react";
+import { Play, X } from "lucide-react";
 import {
   DndContext,
   PointerSensor,
@@ -22,6 +22,7 @@ import { ExerciseRow } from "./exercise-row";
 import { ExercisePicker } from "./exercise-picker";
 import { estimateSessionMinutes } from "@/lib/duration-estimate";
 import { addExerciseToDay, removeDay, reorderExercises } from "@/server/actions/routines";
+import { startWorkoutAction } from "@/server/actions/workout";
 import type { RoutineDayWithDetails } from "@/server/db/routines";
 import type { Exercise } from "@/db/schema";
 
@@ -80,15 +81,24 @@ export function DayCard({
             {exercises.length} ejercicios · ~{minutes} min
           </p>
         </div>
-        <Button
-          type="button"
-          size="icon-sm"
-          variant="ghost"
-          aria-label="Eliminar día"
-          onClick={handleRemoveDay}
-        >
-          <X className="size-4" />
-        </Button>
+        <div className="flex shrink-0 items-center gap-1">
+          {exercises.length > 0 ? (
+            <form action={startWorkoutAction.bind(null, day.id)}>
+              <Button type="submit" size="sm">
+                <Play className="size-4" /> Empezar
+              </Button>
+            </form>
+          ) : null}
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            aria-label="Eliminar día"
+            onClick={handleRemoveDay}
+          >
+            <X className="size-4" />
+          </Button>
+        </div>
       </div>
 
       <DndContext

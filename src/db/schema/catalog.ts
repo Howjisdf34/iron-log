@@ -121,3 +121,4 @@ export type Exercise = typeof exercises.$inferSelect;
 export type NewExercise = typeof exercises.$inferInsert;
 export type Equipment = typeof equipment.$inferSelect;
 export type Muscle = typeof muscles.$inferSelect;
+export type ExerciseMedia = typeof exerciseMedia.$inferSelect;
