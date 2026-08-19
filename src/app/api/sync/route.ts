@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { requireUserId } from "@/server/auth/session";
 import { logSetForUser } from "@/server/workout/mutations";
 import { logSetSchema } from "@/lib/validation/workout";
+import { logger } from "@/server/logger";
 
 /**
  * Batch del outbox offline (CLAUDE.md §5.5). Idempotente por construcción:
@@ -37,10 +38,9 @@ export async function POST(request: Request) {
       await logSetForUser(db, userId, item);
       synced.push(item.clientId);
     } catch (err) {
-      errors.push({
-        clientId: item.clientId,
-        message: err instanceof Error ? err.message : "Error desconocido",
-      });
+      const message = err instanceof Error ? err.message : "Error desconocido";
+      errors.push({ clientId: item.clientId, message });
+      logger.warn("fallo al sincronizar una serie del outbox", { userId, message });
     }
   }
 

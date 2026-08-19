@@ -15,8 +15,9 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# DATABASE_URL falso sólo para que `next build` no falle si algo la referencia
-# en tiempo de build (no debería, pero es red de seguridad barata).
+# Ninguna página toca la DB en build time (export const dynamic =
+# "force-dynamic" en todas las que sí — ver ADR-011), así que no hace
+# falta un DATABASE_URL falso acá.
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm build
 

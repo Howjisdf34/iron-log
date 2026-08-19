@@ -1,16 +1,28 @@
 "use client";
 
 import { useEffect } from "react";
-import { flushOutbox } from "./outbox";
 
-/** Vacía el outbox al montar (por si quedó algo de una sesión previa cortada) y en cada `online`. */
+/**
+ * Vacía el outbox al montar (por si quedó algo de una sesión previa
+ * cortada) y en cada `online`. `import()` dinámico a propósito: Dexie no
+ * debe formar parte del "first load JS" de páginas que nunca tocan el
+ * outbox (p. ej. /login) — ver ADR-022 en docs/ARCHITECTURE.md.
+ */
 export function useOutboxSync(): void {
   useEffect(() => {
-    void flushOutbox();
-    function onOnline() {
-      void flushOutbox();
+    let cancelled = false;
+
+    function flush() {
+      void import("./outbox").then(({ flushOutbox }) => {
+        if (!cancelled) void flushOutbox();
+      });
     }
-    window.addEventListener("online", onOnline);
-    return () => window.removeEventListener("online", onOnline);
+
+    flush();
+    window.addEventListener("online", flush);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("online", flush);
+    };
   }, []);
 }

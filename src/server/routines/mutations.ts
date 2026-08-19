@@ -15,6 +15,7 @@ import {
 } from "@/server/db/routines";
 import { getExercisesBySlugs } from "@/server/db/exercises";
 import { getTemplate } from "./templates";
+import { logger } from "@/server/logger";
 import type {
   CreateRoutineInput,
   RoutineSetInput,
@@ -65,9 +66,10 @@ export async function createRoutineFromTemplateForUser(
       for (const templateExercise of day.exercises) {
         const exercise = exerciseBySlug.get(templateExercise.exerciseSlug);
         if (!exercise) {
-          console.warn(
-            `[createRoutineFromTemplate] slug no encontrado en catálogo: ${templateExercise.exerciseSlug} (plantilla ${templateId}) — se omite`,
-          );
+          logger.warn("slug no encontrado en catálogo al crear rutina desde plantilla", {
+            slug: templateExercise.exerciseSlug,
+            templateId,
+          });
           continue;
         }
 

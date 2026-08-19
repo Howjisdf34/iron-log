@@ -4,6 +4,7 @@ import { requireUserId } from "@/server/auth/session";
 import { restoreUserDataDump, type UserDataDump } from "@/server/export/dump";
 import { userDataDumpSchema } from "@/lib/validation/export-dump";
 import { reviveDates } from "@/lib/json-date-reviver";
+import { logger } from "@/server/logger";
 
 /**
  * Restaura un backup — reemplaza TODOS los datos del usuario (ver el
@@ -28,7 +29,16 @@ export async function POST(request: Request) {
   // Boundary cast único: el JSON externo ya pasó por Zod (fechas incluidas
   // vía z.coerce.date()); de acá para adentro se trata como el tipo interno
   // real que devuelve buildUserDataDump.
-  await restoreUserDataDump(db, userId, parsed.data as unknown as UserDataDump);
+  try {
+    await restoreUserDataDump(db, userId, parsed.data as unknown as UserDataDump);
+  } catch (err) {
+    logger.error("fallo al restaurar un backup", {
+      userId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    throw err;
+  }
 
+  logger.info("backup restaurado", { userId });
   return NextResponse.json({ ok: true });
 }

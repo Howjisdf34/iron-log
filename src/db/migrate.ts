@@ -1,5 +1,6 @@
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { db } from "./index";
+import { logger } from "@/server/logger";
 
 /**
  * Corre `drizzle/*.sql` contra la DB. Se invoca desde src/instrumentation.ts
@@ -19,6 +20,12 @@ export async function runMigrations(): Promise<void> {
   try {
     await client.query("SELECT pg_advisory_lock($1)", [MIGRATION_LOCK_KEY]);
     await migrate(db, { migrationsFolder: "./drizzle" });
+    logger.info("migraciones aplicadas");
+  } catch (err) {
+    logger.error("fallaron las migraciones", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    throw err;
   } finally {
     await client.query("SELECT pg_advisory_unlock($1)", [MIGRATION_LOCK_KEY]);
     client.release();

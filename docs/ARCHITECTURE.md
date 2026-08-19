@@ -354,3 +354,142 @@ usar un reviver genérico basado en el shape del valor (regex de timestamp ISO),
 una lista de campos mantenida a mano — y cubrirlo con un test de integración que haga
 el round-trip completo (`JSON.stringify` → `JSON.parse` → revive → insert real en
 Postgres), no sólo una prueba con el objeto en memoria sin serializar.
+
+## ADR-022: Presupuesto de bundle — Turbopack no da un desglose por ruta
+
+El brief (§7) pide <150KB gzip de First Load JS en el Workout Player, medido con
+`@next/bundle-analyzer`, fallando el build si se pasa. En la práctica, ninguna de las
+dos partes es directa con Turbopack (el bundler del proyecto desde la Fase 0):
+
+- `@next/bundle-analyzer` se apaga solo bajo Turbopack (`process.env.TURBOPACK` →
+  imprime un warning y no genera nada). La alternativa oficial,
+  `next experimental-analyze`, sí funciona, pero produce un explorador **interactivo**
+  pensado para un humano, no un JSON fácil de scriptear en CI.
+- Next 16 + App Router ya no imprime la tabla clásica de "First Load JS" por ruta de
+  Next 12-14: el código se resuelve como referencias RSC, no como un bundle único
+  identificable de antemano. Lo único estable y scripteable es `rootMainFiles` +
+  `polyfillFiles` del `build-manifest.json` de una ruta — que resultó ser **el mismo
+  para todas las rutas** (se comparó `/login` contra `/entrenar/[sessionId]` con
+  `diff`: son idénticos). Es el runtime compartido de React 19 + Next 16, no el peso
+  específico del Workout Player.
+
+Ese runtime compartido mide ~166KB gzip por sí solo — ya arriba del objetivo de
+150KB, y no es algo que el código de la app pueda reducir (es el piso del framework).
+Confirmar que Motion/Dexie/dnd-kit/Recharts SÍ quedan fuera de ese número (code
+splitting real) se hizo a mano con `next experimental-analyze -o`, inspeccionando
+`analyze.data` de `/entrenar/[sessionId]` — encontró `dexie.min.js` ahí, no en el
+runtime compartido, confirmando que sólo se carga en las rutas que de verdad lo usan.
+
+`scripts/check-bundle-budget.ts` quedó como lo que se puede sostener con honestidad:
+un detector de **regresiones** sobre el runtime compartido (techo generoso de 200KB,
+bien por encima del piso actual de ~167KB), no una verificación literal del target de
+150KB — que se documenta como no alcanzado y no accionable con las herramientas
+actuales de Turbopack, en vez de simular que sí se cumple.
+
+De paso, se aprovechó para sacar Dexie del bundle compartido de `providers.tsx`
+(`SyncStatusBadge` vía `next/dynamic({ ssr: false })`, `useOutboxSync` vía
+`import()` dinámico dentro del `useEffect`) — no cambió el número de
+`rootMainFiles` (confirma que ese manifest no lo contaba de entrada), pero evita que
+páginas como `/login`, que nunca tocan el outbox offline, paguen el costo de
+inicializar IndexedDB antes de tiempo.
+
+**Regla del proyecto:** para medir bundles reales por ruta bajo Turbopack, usar
+`next experimental-analyze` a mano (explorador interactivo) — no existe hoy un
+equivalente scripteable confiable para CI. Revisar si versiones futuras de Next
+agregan una salida JSON estable a `experimental-analyze` antes de reintentar
+automatizarlo.
+
+## ADR-023: `restore.sh` borra la media como root, no como `nextjs`
+
+**Bug real, encontrado probando `scripts/restore.sh` de punta a punta** (no sólo
+escribiéndolo — CLAUDE.md §8.5 lo pide explícitamente). El primer intento hacía
+`docker compose exec app sh -c "rm -rf /app/media/* && tar xzf ..."`, corriendo como
+el usuario por defecto del contenedor (`nextjs`, no-root, ver Dockerfile). Falló con
+`Permission denied` sobre archivos de `media/exercises/facepull/*`: el volumen
+`media` venía de una versión más vieja de la imagen/sesión de desarrollo donde esos
+archivos se crearon con otro dueño, y `nextjs` no tiene permiso para borrarlos.
+
+Fix: `docker compose exec -u root app sh -c "rm -rf ... && tar xzf ... && chown -R
+nextjs:nodejs /app/media"` — `-u root` pisa el `USER nextjs` del Dockerfile sólo
+para este exec puntual (el proceso principal del contenedor sigue corriendo como
+`nextjs` todo el tiempo, esto no lo cambia), y el `chown` final deja todo de vuelta
+con el dueño correcto para cuando la app vuelva a leer/escribir esos archivos.
+
+**Regla del proyecto:** cualquier operación de mantenimiento que necesite borrar o
+reescribir archivos en un volumen persistente (no sólo media — pensar lo mismo para
+futuros volúmenes) debe asumir que el volumen puede tener contenido de un dueño
+distinto al usuario actual de la imagen, y correr esa operación puntual como root
+vía `docker compose exec -u root`, nunca cambiando el `USER` del Dockerfile en sí.
+
+## ADR-024: Imagen de ~310MB — por encima del presupuesto de 250MB del brief, aceptado
+
+Pendiente desde ADR-006b (Fase 0, ~296MB) y crecido a ~310MB. Investigado a fondo en
+Fase 7 con `docker history` capa por capa:
+
+- La capa del propio `node:22-alpine` que instala Node.js (`RUN addgroup -g 1000
+  node && ...`) pesa **160MB** ella sola — de eso, el binario `node` son 123MB. Más
+  9MB del rootfs de Alpine y ~5MB de paquetes apk del entrypoint oficial: la imagen
+  base sin agregar nada propio ya son ~180MB, el 72% del presupuesto de 250MB.
+- Lo que agrega este proyecto encima (`COPY .next/standalone`, `.next/static`,
+  `drizzle`, `node_modules` podado por el output tracing de Next) es sólo **~60MB**
+  — verificado con `docker run --rm trackinglife-app du -sh /app/*`.
+- Se intentó borrar `npm`/`corepack`/headers de compilación (no se usan en runtime,
+  sólo se corre `node server.js`) con un `RUN rm -rf ...` en el stage `runner`.
+  **No cambió el tamaño reportado por `docker images` en absoluto** — el `rm -rf`
+  crea una nueva capa con "whiteouts" que oculta los archivos en el filesystem
+  fusionado de un contenedor corriendo, pero la capa base de `node:22-alpine` que
+  los agregó originalmente sigue siendo parte de la imagen igual, con su tamaño
+  completo. Confirmado con `docker history`: la capa del `rm -rf` pesa 24.6kB, no
+  -25MB. Borrar archivos en una capa posterior nunca reduce el tamaño final de una
+  imagen por capas — hace falta que no se agreguen en primer lugar (multi-stage,
+  que es justo lo que este Dockerfile ya hace para el resto) o `--squash`
+  (experimental, no garantizado en el Docker de Coolify).
+
+**Conclusión:** para bajar de 250MB de verdad haría falta una imagen base sin
+Node.js preinstalado (armar el runtime a mano sobre `alpine:3.20` puro, copiando el
+binario de `node` y sus libs compartidas) — invasivo, fragil entre versiones de
+Node, y el ahorro real seguiría siendo acotado porque el binario de `node` en sí
+(123MB) es el grueso del problema, no algo removible. Dado que el otro presupuesto
+del brief —RAM en reposo— **sí se cumple con margen** (58MB medidos con `docker
+stats` contra un límite de 512MB en `docker-compose.yml` y un objetivo de <250MB en
+el brief), se acepta el tamaño de imagen como está. Es un costo de transferencia al
+hacer `pull` (una vez por deploy), no un costo de RAM ni de CPU en el VPS corriendo.
+
+## ADR-025: manifest/sw.js/iconos tienen que ser públicos en el proxy
+
+**Bug real, encontrado corriendo Lighthouse en Fase 7** contra la app dockerizada:
+`/manifest.webmanifest` y `/sw.js` devolvían **302 a `/login`** en vez del archivo.
+`src/proxy.ts` (el middleware de auth, ver `PUBLIC_PATHS`/`PUBLIC_PREFIXES`) sólo
+dejaba pasar `/login`, `/api/auth`, `/api/health`, `/dev`, `/_next` y `/favicon.ico`
+sin sesión — todo lo demás, incluidos el manifest y el service worker, quedaba
+detrás del login. El navegador pide esos dos archivos para evaluar si la PWA es
+instalable **antes** de que exista ninguna sesión (por ejemplo, la primera vez que
+alguien visita `/login`) — con esto roto, la app nunca era instalable de verdad,
+aunque todo el código de Fase 5 estuviera bien.
+
+Fix: agregar `/offline`, `/manifest.webmanifest`, `/sw.js`, `/favicon.png`,
+`/apple-touch-icon.png` a `PUBLIC_PATHS` y `/icons` a `PUBLIC_PREFIXES`. Ninguno de
+estos expone datos de usuario — son exactamente los assets que un navegador anónimo
+necesita para poder ofrecer "instalar app".
+
+**Regla del proyecto:** todo asset nuevo que la Fase 5/PWA agregue (iconos,
+manifest, service worker, páginas de fallback offline) tiene que revisarse contra
+`src/proxy.ts` explícitamente — no asumir que "es una ruta nueva, ya va a heredar
+las reglas correctas". El middleware es allowlist, no blocklist: por defecto todo
+requiere sesión.
+
+**Resultado final, medido con Lighthouse real (`pnpm dlx lighthouse`, mobile,
+throttling simulado) contra la app dockerizada, autenticado, después de este fix:**
+
+| Página | Performance | Accessibility | Best Practices | SEO |
+|---|---|---|---|---|
+| `/` | 97 | 100 | 100 | 100 |
+| `/rutinas` (con datos reales) | 92 | 100 | 100 | 100 |
+
+Todos por encima de los objetivos del brief (§7: Performance ≥90, Accessibility
+≥95, Best Practices ≥95). La categoría "PWA" de Lighthouse ya no existe en
+versiones recientes (Google la sacó del core de Lighthouse) — la instalabilidad se
+verificó a mano: manifest válido y público, iconos maskable 192/512 accesibles,
+service worker registrado con `Content-Type: application/javascript` correcto, y
+`/offline` como fallback — ver esta misma sección para el bug que había roto todo
+esto.

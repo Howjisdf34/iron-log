@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { hashPassword } from "./password";
+import { logger } from "@/server/logger";
 
 const seedUserSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
@@ -25,13 +26,17 @@ export async function seedUsersIfNeeded(): Promise<void> {
 
   const parsed = seedUsersSchema.safeParse(JSON.parse(raw));
   if (!parsed.success) {
-    console.error("[seed-users] SEED_USERS inválido:", parsed.error.message);
+    logger.error("SEED_USERS inválido", { error: parsed.error.message });
     return;
   }
 
   for (const u of parsed.data) {
     const passwordHash = await hashPassword(u.password);
-    await db.insert(users).values({ email: u.email, name: u.name, passwordHash });
-    console.log(`[seed-users] usuario creado: ${u.email}`);
+    const [created] = await db
+      .insert(users)
+      .values({ email: u.email, name: u.name, passwordHash })
+      .returning({ id: users.id });
+    // sin email/nombre en el log — sólo el id, ver src/server/logger.ts
+    logger.info("usuario creado desde SEED_USERS", { userId: created!.id });
   }
 }
