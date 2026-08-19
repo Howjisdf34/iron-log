@@ -512,3 +512,21 @@ GitHub no está verificado — sólo *parece* correcto por revisión visual. La 
 vez que un push real lo dispara es, en los hechos, su primer test end-to-end.
 Tratar "el workflow nunca corrió" como una señal explícita de riesgo, igual que
 cualquier código sin cobertura.
+
+## ADR-027: `pnpm typecheck` en CI necesita `next typegen` primero
+
+**Segundo bug real del primer run de CI** (mismo push que ADR-026, después de
+arreglar el de pnpm): `tsc --noEmit` falló con `Cannot find name 'LayoutProps'` en
+`src/app/layout.tsx`. `LayoutProps`/`PageProps` son tipos ambiente que Next genera
+en `.next/types/*.d.ts` (declarados en `tsconfig.json` → `include`) — sólo existen
+después de correr un build o un typegen. En esta máquina de desarrollo siempre hubo
+un `.next/` de sobra de builds anteriores, así que `pnpm typecheck` nunca se corrió
+de verdad contra un checkout limpio hasta CI.
+
+Fix: agregar `pnpm exec next typegen` (comando dedicado, no hace falta un build
+completo) como paso de CI justo antes de `pnpm typecheck`.
+
+**Regla del proyecto:** cualquier chequeo que dependa de artefactos generados
+(`.next/types`, migraciones aplicadas, etc.) hay que probarlo alguna vez contra un
+checkout realmente limpio — `git clean -xdf` local antes de confiar en que un
+comando "siempre funcionó" es más barato que descubrirlo en el primer CI real.

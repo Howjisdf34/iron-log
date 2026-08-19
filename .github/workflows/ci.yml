@@ -43,6 +43,12 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
+      # `LayoutProps`/`PageProps` son tipos ambiente que Next genera en
+      # .next/types/ (ver tsconfig.json `include`) — sólo existen después
+      # de un build o typegen. En local siempre había un .next/ de un
+      # `pnpm dev`/`build` previo, así que esto nunca se notó hasta el
+      # primer checkout limpio de verdad en CI (bug real — ver ADR-027).
+      - run: pnpm exec next typegen
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm db:migrate
