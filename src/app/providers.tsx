@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { SyncStatusBadge } from "@/components/sync-status-badge";
+import { RegisterServiceWorker } from "@/components/register-service-worker";
+import { useOutboxSync } from "@/lib/offline/use-outbox-sync";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -16,5 +19,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
       }),
   );
 
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  useOutboxSync();
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      {children}
+      <SyncStatusBadge />
+      <RegisterServiceWorker />
+    </QueryClientProvider>
+  );
 }

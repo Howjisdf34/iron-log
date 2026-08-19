@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { exercises, users } from "@/db/schema";
+import { exercises, setLogs, users } from "@/db/schema";
+import { newId } from "@/lib/id";
 import {
   abandonSessionForUser,
   finishSessionForUser,
@@ -53,6 +54,7 @@ describe("workout/mutations (integración real, DB de verdad)", () => {
     const sessionId = await startSessionForUser(db, userAId, null);
 
     const { setLog, prTypes } = await logSetForUser(db, userAId, {
+      clientId: newId(),
       sessionId,
       exerciseId: benchPressId,
       order: 0,
@@ -72,6 +74,7 @@ describe("workout/mutations (integración real, DB de verdad)", () => {
   it("no marca PR si el peso es igual o menor al histórico", async () => {
     const first = await startSessionForUser(db, userAId, null);
     await logSetForUser(db, userAId, {
+      clientId: newId(),
       sessionId: first,
       exerciseId: benchPressId,
       order: 0,
@@ -84,6 +87,7 @@ describe("workout/mutations (integración real, DB de verdad)", () => {
 
     const second = await startSessionForUser(db, userAId, null);
     const { prTypes } = await logSetForUser(db, userAId, {
+      clientId: newId(),
       sessionId: second,
       exerciseId: benchPressId,
       order: 0,
@@ -100,6 +104,7 @@ describe("workout/mutations (integración real, DB de verdad)", () => {
     const sessionId = await startSessionForUser(db, userAId, null);
     await expect(
       logSetForUser(db, userBId, {
+        clientId: newId(),
         sessionId,
         exerciseId: benchPressId,
         order: 0,
@@ -115,6 +120,7 @@ describe("workout/mutations (integración real, DB de verdad)", () => {
   it("finishSessionForUser agrega volumen/series y marca la sesión completed", async () => {
     const sessionId = await startSessionForUser(db, userAId, null);
     await logSetForUser(db, userAId, {
+      clientId: newId(),
       sessionId,
       exerciseId: benchPressId,
       order: 0,
@@ -124,6 +130,7 @@ describe("workout/mutations (integración real, DB de verdad)", () => {
       failed: false,
     });
     await logSetForUser(db, userAId, {
+      clientId: newId(),
       sessionId,
       exerciseId: benchPressId,
       order: 1,
@@ -133,6 +140,7 @@ describe("workout/mutations (integración real, DB de verdad)", () => {
       failed: false,
     });
     await logSetForUser(db, userAId, {
+      clientId: newId(),
       sessionId,
       exerciseId: benchPressId,
       order: 2,
@@ -150,6 +158,7 @@ describe("workout/mutations (integración real, DB de verdad)", () => {
   it("getPlayerData en modo libre reconstruye la cola desde los set_logs ya registrados", async () => {
     const sessionId = await startSessionForUser(db, userAId, null);
     await logSetForUser(db, userAId, {
+      clientId: newId(),
       sessionId,
       exerciseId: benchPressId,
       order: 0,
@@ -163,6 +172,38 @@ describe("workout/mutations (integración real, DB de verdad)", () => {
     expect(data?.routineDayId).toBeNull();
     expect(data?.exercises).toHaveLength(1);
     expect(data?.exercises[0]?.loggedSets).toHaveLength(1);
+
+    await abandonSessionForUser(db, userAId, sessionId);
+  });
+
+  it("logSetForUser es idempotente por clientId — reenviar el mismo batch 3 veces no duplica (outbox offline, CLAUDE.md §5.5)", async () => {
+    const sessionId = await startSessionForUser(db, userAId, null);
+    const input = {
+      clientId: newId(),
+      sessionId,
+      exerciseId: benchPressId,
+      order: 0,
+      setType: "working" as const,
+      weightKg: 55,
+      reps: 6,
+      failed: false,
+    };
+
+    const first = await logSetForUser(db, userAId, input);
+    const second = await logSetForUser(db, userAId, input);
+    const third = await logSetForUser(db, userAId, input);
+
+    expect(first.setLog.id).toBe(second.setLog.id);
+    expect(first.setLog.id).toBe(third.setLog.id);
+    // Sólo la primera inserción corre la detección de PR — los reintentos no la repiten.
+    expect(second.prTypes).toEqual([]);
+    expect(third.prTypes).toEqual([]);
+
+    const rows = await db
+      .select()
+      .from(setLogs)
+      .where(eq(setLogs.clientId, input.clientId));
+    expect(rows).toHaveLength(1);
 
     await abandonSessionForUser(db, userAId, sessionId);
   });

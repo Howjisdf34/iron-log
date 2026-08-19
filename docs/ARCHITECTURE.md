@@ -223,3 +223,78 @@ transición animada por sí solo; superponer la View Transitions API al mismo ca
 ambos sistemas intentarían animar el mismo DOM a la vez. Se deja View Transitions API
 para donde el brief la pide con más claridad — transiciones de página con shared
 element (p. ej. card de rutina → detalle) — no para este caso.
+
+## ADR-016: Outbox por `clientId` + evento `online`, sin Background Sync API
+
+El brief (§5.5) pide "Background Sync (con fallback a sync al recuperar online)". En
+la práctica, Background Sync API no existe en Safari/iOS ni en Firefox de escritorio
+por defecto — es soporte parcial, sólo Chromium. El fallback a `online` es, en los
+hechos, el único mecanismo que funciona en **todos** los navegadores, así que Fase 5 lo
+implementa como el camino principal (`src/lib/offline/use-outbox-sync.ts`), no como
+fallback de un Background Sync real. Se evalúa agregar `registration.sync.register(...)`
+como mejora incremental sólo si en el futuro hace falta cubrir el caso "la pestaña se
+cerró del todo y la app no volvió a abrirse antes de recuperar señal" — hoy, con la app
+abierta (aunque sea en background) en el celular del gym, el evento `online` alcanza.
+
+La idempotencia real la da `clientId` (uuid v7, generado siempre en el cliente —
+también para el path online normal, no sólo el offline): `setLogs.clientId` tiene
+`UNIQUE`, y `logSetForUser` inserta con `onConflictDoNothing` + fallback a `SELECT` si
+ya existía. Reenviar el mismo batch de `/api/sync` 3 veces dejaría el mismo resultado
+— verificado con test de integración (`mutations.integration.test.ts`, caso
+"idempotente por clientId") y con el E2E real de corte de red.
+
+## ADR-017: Service worker bundleado con esbuild, no con el plugin de `@serwist/next`
+
+**Bug real encontrado al correr `pnpm build`:** `withSerwistInit` (el wrapper estándar
+de `@serwist/next` para `next.config.ts`) inyecta un plugin de **webpack** que compila
+`src/app/sw.ts` e inyecta el manifest de precache. Turbopack —el bundler de este
+proyecto desde la Fase 0— no soporta ese plugin: el build falla con *"This build is
+using Turbopack, with a webpack config and no turbopack config"*. El propio warning de
+Serwist lo advierte y sugiere 3 salidas: usar webpack (retroceder toda la app),
+`@serwist/turbopack` (experimental) o "modo configurador" (una API separada,
+pensada para invocarse como paso de build aparte, no como plugin de `next.config.ts`).
+
+Se optó por una cuarta vía, más simple que las tres: `src/app/sw.ts` se bundlea con
+**esbuild** directo (`scripts/build-sw.ts`, corrido después de `next build` vía
+`pnpm build`), sin pasar por ningún plugin de Next. Esto significa que el service
+worker **no precachea el app shell entero** en el evento `install` (perdemos el
+manifest de precache automático de Serwist) — pero el caso real que importa ya queda
+cubierto sin eso: no se puede empezar una sesión de entrenamiento sin red (el primer
+`/entrenar/[id]` siempre se visita online), así que para cuando el usuario corta la
+red a mitad de una sesión, esa página y sus JS chunks ya están en el cache del
+navegador vía el runtime caching normal (`defaultCache` de `@serwist/next/worker`,
+que sí se puede importar como librería plana sin el plugin de webpack). El fallback
+`/offline` se cachea a mano en `install` (`caches.open(...).then(c => c.add(...))`) y
+se sirve vía `serwist.setCatchHandler(...)`, sin depender del sistema de precache de
+Serwist tampoco.
+
+**Regla del proyecto:** cualquier librería que ofrezca "integración con Next.js" debe
+verificarse contra Turbopack, no sólo contra la doc genérica — varias todavía asumen
+webpack por defecto. `serwist`/`@serwist/next` siguen siendo dependencias reales (se
+usan como librería, `import { Serwist, CacheFirst, ... } from "serwist"` y
+`import { defaultCache } from "@serwist/next/worker"`), sólo se descartó su plugin de
+build.
+
+## ADR-018: E2E de Fase 5 corre contra Docker, no contra `next start`
+
+`output: "standalone"` (ADR-001) no funciona con `next start` — hay que copiar
+`public/` y `.next/static/` junto al `server.js` generado (exactamente lo que hace el
+Dockerfile a mano). Se probó replicar eso en un script local
+(`node .next/standalone/server.js`), pero en esta máquina Windows falla con
+`EPERM: operation not permitted, stat ...node_modules\react` — `realpathSync` sobre
+los symlinks que arma pnpm dentro de `node_modules/.pnpm` no siempre tiene permisos
+sin modo desarrollador/admin habilitado.
+
+En vez de perseguir ese problema específico de Windows, `playwright.config.ts` levanta
+el stack real con `docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+--build` como `webServer` — corre Linux dentro del contenedor (sin el problema de
+symlinks), y de paso prueba el artefacto real que se despliega en Coolify, no una
+aproximación local. El test importa `src/db` directo para sembrar usuario/rutina/sesión
+(mismo patrón que los tests de integración de Vitest) contra la DB expuesta en
+`localhost:5433` por el overlay de dev — que es la misma DB a la que se conecta el
+contenedor de la app vía `db:5432` (DNS interno de compose).
+
+**Regla del proyecto:** antes de `pnpm test:e2e` hace falta la DB de dev levantada
+(`docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d db`) y Docker
+en el PATH de la sesión (mismo caveat de siempre en Windows tras instalar Docker
+Desktop — abrir una terminal nueva).

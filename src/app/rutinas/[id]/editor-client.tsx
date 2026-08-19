@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SortableItem } from "@/components/routines/sortable-item";
 import { DayCard } from "@/components/routines/day-card";
+import { DownloadOfflineButton } from "@/components/routines/download-offline-button";
 import { estimateSessionMinutes } from "@/lib/duration-estimate";
 import { addDay, reorderDays } from "@/server/actions/routines";
 import type { RoutineWithDetails } from "@/server/db/routines";
@@ -99,6 +100,7 @@ export function RoutineEditorClient({ routine }: { routine: RoutineWithDetails }
             ~{totalMinutes} min total
           </Badge>
         </div>
+        <DownloadOfflineButton routine={routine} />
       </header>
 
       <DndContext

@@ -59,7 +59,7 @@ export async function getRoutineWithDetails(
           exercises: {
             orderBy: (e, { asc }) => [asc(e.order)],
             with: {
-              exercise: true,
+              exercise: { with: { media: true } },
               sets: { orderBy: (s, { asc }) => [asc(s.setNumber)] },
             },
           },

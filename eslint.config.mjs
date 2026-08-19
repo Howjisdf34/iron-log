@@ -14,6 +14,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // public/sw.js es un bundle generado por scripts/build-sw.ts (esbuild,
+    // minificado) — no es código fuente, no tiene sentido lintearlo.
+    "public/sw.js",
   ]),
 ]);
 

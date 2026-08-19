@@ -45,6 +45,10 @@ next-env.d.ts
 /data/raw/
 /media/
 
+# service worker bundleado por scripts/build-sw.ts (ver next.config.ts / ADR-017)
+/public/sw.js
+/public/sw.js.map
+
 # tests
 /test-results/
 /playwright-report/

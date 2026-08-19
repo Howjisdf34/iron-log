@@ -17,20 +17,42 @@ import { PrToast } from "./pr-toast";
 import { ExercisePicker } from "@/components/routines/exercise-picker";
 import { useWorkoutStore } from "@/lib/stores/workout-store";
 import { useWakeLock } from "@/lib/hooks/use-wake-lock";
+import { useOnlineStatus } from "@/lib/hooks/use-online-status";
 import { triggerHaptic } from "@/lib/haptics";
 import { playSetCompleteSound } from "@/lib/sound";
 import { requestNotificationPermission } from "@/lib/notifications";
 import { springs } from "@/lib/motion/springs";
+import { newId } from "@/lib/id";
+import { enqueueSetLog, flushOutbox } from "@/lib/offline/outbox";
 import {
   abandonSessionAction,
   finishSessionAction,
   getExercisePlayerInfoAction,
   logSetAction,
 } from "@/server/actions/workout";
-import type { PlayerData, PlayerExerciseSlot } from "@/server/workout/player-data";
+import type {
+  PlayerData,
+  PlayerExerciseSlot,
+  PlayerLoggedSet,
+} from "@/server/workout/player-data";
 import type { FinishSessionSummary } from "@/server/workout/mutations";
 import type { LogSetInput } from "@/lib/validation/workout";
 import type { Exercise, PlateInventory, UserSettings } from "@/db/schema";
+
+function optimisticLoggedSet(input: LogSetInput): PlayerLoggedSet {
+  return {
+    id: input.clientId,
+    order: input.order,
+    setType: input.setType,
+    weightKg: input.weightKg ?? null,
+    reps: input.reps ?? null,
+    rpe: input.rpe ?? null,
+    restTakenSeconds: input.restTakenSeconds ?? null,
+    isPr: false,
+    failed: input.failed ?? false,
+    completedAt: new Date().toISOString(),
+  };
+}
 
 interface WorkoutPlayerProps {
   initialData: PlayerData;
@@ -87,6 +109,7 @@ export function WorkoutPlayer({
   const [isFinishing, startFinishing] = useTransition();
 
   const { sessionId: storedSessionId, setSession, reset, startRest } = useWorkoutStore();
+  const isOnline = useOnlineStatus();
 
   useEffect(() => {
     if (storedSessionId !== initialData.sessionId) {
@@ -116,7 +139,8 @@ export function WorkoutPlayer({
     setType: string,
     values: SetRowValues,
   ) {
-    const result = await logSetAction({
+    const input: LogSetInput = {
+      clientId: newId(),
       sessionId: initialData.sessionId,
       exerciseId: exercise.exercise.id,
       routineSetId: null,
@@ -126,12 +150,33 @@ export function WorkoutPlayer({
       reps: values.reps,
       rpe: values.rpe,
       failed: values.failed,
-    });
+    };
+
+    let loggedSet: PlayerLoggedSet;
+    let prTypes: ("1rm_estimated" | "weight")[] = [];
+
+    // Sin red: encolar local, la UI no espera al servidor (CLAUDE.md §5.5).
+    // Con red pero el fetch falla a mitad de camino: mismo fallback — el
+    // outbox reintenta solo al volver `online` (useOutboxSync en providers.tsx).
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      await enqueueSetLog(input);
+      loggedSet = optimisticLoggedSet(input);
+    } else {
+      try {
+        const result = await logSetAction(input);
+        loggedSet = result.setLog;
+        prTypes = result.prTypes;
+      } catch {
+        await enqueueSetLog(input);
+        loggedSet = optimisticLoggedSet(input);
+        void flushOutbox();
+      }
+    }
 
     setExercises((prev) =>
       prev.map((ex) =>
         ex.key === exercise.key
-          ? { ...ex, loggedSets: [...ex.loggedSets, result.setLog] }
+          ? { ...ex, loggedSets: [...ex.loggedSets, loggedSet] }
           : ex,
       ),
     );
@@ -150,7 +195,7 @@ export function WorkoutPlayer({
       triggerHaptic("tap", settings.hapticsEnabled);
     }
 
-    if (result.prTypes.length > 0) {
+    if (prTypes.length > 0) {
       triggerHaptic("pr", settings.hapticsEnabled);
       const label = `${exercise.exercise.nameEs}: ${values.weightKg ?? "?"}kg × ${values.reps ?? "?"}`;
       setPrToast(`🔥 Nuevo PR: ${values.weightKg ?? "?"}kg × ${values.reps ?? "?"}`);
@@ -174,6 +219,7 @@ export function WorkoutPlayer({
   }
 
   function handleFinish() {
+    if (!isOnline) return;
     startFinishing(async () => {
       const result = await finishSessionAction({ sessionId: initialData.sessionId });
       setSummary(result);
@@ -360,12 +406,18 @@ export function WorkoutPlayer({
           </Button>
         ) : null}
 
+        {!isOnline ? (
+          <p className="text-center text-xs text-muted-foreground">
+            Sin conexión — tus series ya están guardadas y se sincronizan solas. Conectate
+            para terminar el entrenamiento.
+          </p>
+        ) : null}
         <Button
           type="button"
           size="touch"
           className="w-full"
           onClick={handleFinish}
-          disabled={isFinishing}
+          disabled={isFinishing || !isOnline}
         >
           <Sparkles className="size-4" />
           {isFinishing ? "Guardando…" : "Terminar entrenamiento"}

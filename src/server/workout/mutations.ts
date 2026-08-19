@@ -98,7 +98,11 @@ export async function logSetForUser(
   const session = await getSessionForUser(db, userId, input.sessionId);
   if (session.status !== "in_progress") throw new Error("La sesión ya terminó");
 
-  const [inserted] = await db
+  // `clientId` es la clave de idempotencia (CLAUDE.md §5.5): si el outbox
+  // offline reintenta el mismo envío (o el usuario duplica el tap antes de
+  // que el primero confirme), onConflictDoNothing hace que el segundo
+  // intento sea un no-op en vez de una serie duplicada.
+  const inserted = await db
     .insert(setLogs)
     .values({
       sessionId: input.sessionId,
@@ -115,11 +119,23 @@ export async function logSetForUser(
       failed: input.failed ?? false,
       notes: input.notes ?? null,
       completedAt: new Date(),
-      clientId: newId(),
+      clientId: input.clientId,
     })
+    .onConflictDoNothing({ target: setLogs.clientId })
     .returning();
 
-  let setLog = inserted!;
+  if (inserted.length === 0) {
+    // Reintento de un envío que ya se procesó — devolvemos la fila existente
+    // sin repetir la detección de PR (ya se hizo la primera vez).
+    const [existing] = await db
+      .select()
+      .from(setLogs)
+      .where(eq(setLogs.clientId, input.clientId))
+      .limit(1);
+    return { setLog: existing!, prTypes: [] };
+  }
+
+  let setLog = inserted[0]!;
   const prTypes: ("1rm_estimated" | "weight")[] = [];
 
   if (!setLog.failed && input.weightKg != null && input.weightKg > 0) {

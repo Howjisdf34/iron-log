@@ -8,6 +8,8 @@ export const startSessionSchema = z.object({
 });
 
 export const logSetSchema = z.object({
+  /** uuid v7 generado en el cliente — idempotencia del outbox offline (CLAUDE.md §5.5). */
+  clientId: z.string().uuid(),
   sessionId: z.string().uuid(),
   exerciseId: z.string().uuid(),
   routineSetId: z.string().uuid().nullable().optional(),
