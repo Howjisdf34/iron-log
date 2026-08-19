@@ -1,10 +1,6 @@
 import type { MetadataRoute } from "next";
 
-/**
- * PWA manifest (CLAUDE.md §5.5). El shortcut de "Historial" queda para
- * cuando exista esa ruta (Fase 6) — un shortcut a una página que no existe
- * todavía sería peor que no tenerlo.
- */
+/** PWA manifest (CLAUDE.md §5.5). */
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Iron Log",
@@ -37,6 +33,11 @@ export default function manifest(): MetadataRoute.Manifest {
         name: "Empezar entrenamiento",
         url: "/",
         description: "Continuar o empezar un entrenamiento",
+      },
+      {
+        name: "Historial",
+        url: "/historial",
+        description: "Ver racha, PRs y entrenamientos pasados",
       },
     ],
   };

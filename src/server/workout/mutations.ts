@@ -14,6 +14,7 @@ import type {
   LogSetInput,
   UpdateSetLogInput,
 } from "@/lib/validation/workout";
+import type { UpdateSessionMetaInput } from "@/lib/validation/history";
 
 /**
  * Lógica de negocio pura del Workout Player — mismo patrón que
@@ -311,4 +312,25 @@ export async function finishSessionForUser(
     previousVolumeKg,
     previousTotalSets,
   };
+}
+
+/** Editar bodyweight/mood/energy/notas de una sesión ya completada — CLAUDE.md §5.4 ("se me olvidó anotar algo"). */
+export async function updateSessionMetaForUser(
+  db: Database,
+  userId: string,
+  input: UpdateSessionMetaInput,
+): Promise<void> {
+  await getSessionForUser(db, userId, input.sessionId);
+  await db
+    .update(workoutSessions)
+    .set({
+      ...(input.bodyweightKg !== undefined
+        ? { bodyweightKg: input.bodyweightKg != null ? String(input.bodyweightKg) : null }
+        : {}),
+      ...(input.mood !== undefined ? { mood: input.mood } : {}),
+      ...(input.energy !== undefined ? { energy: input.energy } : {}),
+      ...(input.notes !== undefined ? { notes: input.notes } : {}),
+      updatedAt: new Date(),
+    })
+    .where(eq(workoutSessions.id, input.sessionId));
 }

@@ -298,3 +298,59 @@ contenedor de la app vía `db:5432` (DNS interno de compose).
 (`docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d db`) y Docker
 en el PATH de la sesión (mismo caveat de siempre en Windows tras instalar Docker
 Desktop — abrir una terminal nueva).
+
+## ADR-019: `startOfIsoWeek` usa getters UTC, no locales
+
+**Bug real, encontrado por un test unitario de Fase 6** (`muscle-volume.test.ts`):
+`new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))` mezclaba un
+constructor UTC con getters **locales** (`getFullYear`/`getMonth`/`getDate`). Con
+`TZ=America/Mexico_City` (docker-compose.yml), una fecha-string como `"2026-01-12"`
+—que `new Date(...)` parsea como medianoche UTC— cae en "11 de enero" en hora local, así
+que los getters locales devolvían el día equivocado y la semana calculada quedaba
+corrida. El test lo agarró porque comparaba una fecha-string simple contra el resultado
+esperado; con los timestamps completos (`T15:00:00Z`) que se usaron en los primeros
+tests no se notaba, porque restar 6 horas no cruzaba medianoche para esas horas
+puntuales — **una lección aparte: probar con fechas-string simples, no sólo
+timestamps con hora explícita, para lo que dependa de "qué día calendario es".**
+
+**Regla del proyecto:** cualquier función de fecha que combine `Date.UTC()` con
+getters usa `getUTC*()` en los dos lados, nunca mezcla local con UTC. Ver
+`src/lib/date-buckets.ts`.
+
+## ADR-020: El lint de pureza de React también corre en Server Components
+
+Se asumía que `react-hooks/purity` (ver ADR-012) sólo aplicaba a componentes cliente
+con re-renders reales. Al escribir `/historial` (Server Component, `async function`)
+con `new Date(Date.now() - ...)` para acotar una query, el linter lo marcó igual que
+hubiera marcado un `"use client"`. **Regla del proyecto:** ningún componente —
+servidor o cliente— llama `Date.now()`/`Math.random()` directo en el cuerpo de la
+función; se arma el valor con `new Date()` (sin argumentos) y métodos de instancia
+(`setUTCDate`, etc.), o se recibe como prop/parámetro ya calculado.
+
+## ADR-021: Export/import — revivir fechas genérico, no enumerado a mano
+
+**Bug real, encontrado por el test de integración del round-trip de export/import**
+(`history.integration.test.ts`): el primer intento de `src/lib/validation/export-dump.ts`
+enumeraba a mano qué campos de cada tabla anidada (rutinas→días→ejercicios→series,
+sesiones→series) eran `timestamp` para coercionarlos con `z.coerce.date()`. Se
+olvidaron `createdAt`/`updatedAt` de `routine_days`, `routine_exercises` y
+`routine_sets` — al restaurar, Drizzle explotó con `value.toISOString is not a
+function` (su `PgTimestamp.mapToDriverValue` exige un `Date` real, node-postgres NO
+acepta un string ISO ahí pese a que sí lo hace en otros paths — no asumir que sí sin
+probarlo).
+
+En vez de perseguir el enumerado field por field (fràgil: cualquier columna
+`timestamp` nueva que se agregue después vuelve a romper esto en silencio), se
+reemplazó por `src/lib/json-date-reviver.ts`: recorre el JSON entero y convierte
+cualquier string con forma de timestamp ISO completo (`.../\d{4}-\d{2}-\d{2}T...Z/`)
+a `Date`, sin importar en qué campo esté. Las fechas simples (`body_metrics.date`,
+tipo `date` de Postgres, que Drizzle sí espera como string) no matchean el regex
+porque no tienen componente de hora, así que se dejan intactas. El schema de Zod
+(`userDataDumpSchema`) quedó más simple: sólo valida forma/ids, ya no coerciona
+fecha por fecha — esa responsabilidad es del reviver, aplicado ANTES de Zod.
+
+**Regla del proyecto:** para revivir `Date` desde JSON en una estructura anidada,
+usar un reviver genérico basado en el shape del valor (regex de timestamp ISO), no
+una lista de campos mantenida a mano — y cubrirlo con un test de integración que haga
+el round-trip completo (`JSON.stringify` → `JSON.parse` → revive → insert real en
+Postgres), no sólo una prueba con el objeto en memoria sin serializar.

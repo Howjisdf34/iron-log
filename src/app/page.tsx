@@ -48,6 +48,17 @@ export default async function Home() {
         Ver rutinas
       </Link>
 
+      <Link
+        href="/historial"
+        className={buttonVariants({
+          variant: "ghost",
+          size: "touch",
+          className: "w-full max-w-xs",
+        })}
+      >
+        Historial
+      </Link>
+
       <form action={logoutAction}>
         <Button type="submit" variant="ghost" size="sm">
           Cerrar sesión
