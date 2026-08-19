@@ -493,3 +493,22 @@ verificó a mano: manifest válido y público, iconos maskable 192/512 accesible
 service worker registrado con `Content-Type: application/javascript` correcto, y
 `/offline` como fallback — ver esta misma sección para el bug que había roto todo
 esto.
+
+## ADR-026: `pnpm/action-setup` no admite dos versiones de pnpm a la vez
+
+**Bug real, encontrado en el primer run de CI contra GitHub real** (el repo recién
+se creó y pusheó en Fase 7 — el workflow de `.github/workflows/ci.yml`, escrito en
+la Fase 0, nunca había corrido de verdad hasta entonces). Falló con
+`ERR_PNPM_BAD_PM_VERSION`: el step `pnpm/action-setup@v4` tenía `version: 11`
+explícito, y `package.json` ya trae `"packageManager": "pnpm@11.22.0"` — la action
+detecta las dos fuentes en conflicto y corta en vez de adivinar cuál priorizar.
+
+Fix: sacar el `version:` del step. `pnpm/action-setup@v4` lee `packageManager` de
+`package.json` solo cuando no se le pasa una versión explícita — que es justo la
+única fuente de verdad que hace falta (ya la usa Corepack en Docker/local también).
+
+**Regla del proyecto:** un workflow de CI escrito antes de que el repo exista en
+GitHub no está verificado — sólo *parece* correcto por revisión visual. La primera
+vez que un push real lo dispara es, en los hechos, su primer test end-to-end.
+Tratar "el workflow nunca corrió" como una señal explícita de riesgo, igual que
+cualquier código sin cobertura.

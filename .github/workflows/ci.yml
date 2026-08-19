@@ -29,9 +29,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Sin `version:` acá a propósito — pnpm/action-setup@v4 la toma del
+      # campo "packageManager" de package.json (pnpm@11.22.0). Pisarla acá
+      # con otra versión hace que la action falle con
+      # ERR_PNPM_BAD_PM_VERSION (bug real, encontrado en el primer run de
+      # este workflow — ver ADR-026 en docs/ARCHITECTURE.md).
       - uses: pnpm/action-setup@v4
-        with:
-          version: 11
 
       - uses: actions/setup-node@v4
         with:
