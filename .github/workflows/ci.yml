@@ -52,6 +52,12 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm db:migrate
+      # La Postgres del servicio nace vacía — sin esto, los tests de
+      # integración que dependen de slugs de ejercicios reales (via
+      # ROUTINE_TEMPLATES) fallan con "Cannot read properties of
+      # undefined" (bug real, primer run de CI — ver ADR-028). No es
+      # `pnpm seed:exercises` (ese pega a wger/ffmpeg, lento y de red).
+      - run: pnpm exec tsx scripts/seed-ci-fixture.ts
       - run: pnpm test:integration
       - run: pnpm build
       - name: Bundle budget del Workout Player

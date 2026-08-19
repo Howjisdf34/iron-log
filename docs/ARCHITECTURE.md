@@ -530,3 +530,36 @@ completo) como paso de CI justo antes de `pnpm typecheck`.
 (`.next/types`, migraciones aplicadas, etc.) hay que probarlo alguna vez contra un
 checkout realmente limpio — `git clean -xdf` local antes de confiar en que un
 comando "siempre funcionó" es más barato que descubrirlo en el primer CI real.
+
+## ADR-028: los tests de integración necesitan un fixture de ejercicios en CI
+
+**Tercer bug real del primer run de CI** (mismo push, después de arreglar
+ADR-026/027): `pnpm test:integration` falló con `TypeError: Cannot read properties
+of undefined (reading 'id')` y `expected +0 to be 18`. Causa: la Postgres del
+servicio de GitHub Actions nace completamente vacía — `pnpm db:migrate` sólo aplica
+el schema (`drizzle/*.sql`), nunca puebla `exercises`. Los tests de integración de
+rutinas/workout/historial usan `createRoutineFromTemplateForUser`, que resuelve
+slugs reales (`bench-press`, `squats`, etc.) contra el catálogo — en esta máquina de
+desarrollo esos 873 ejercicios están sembrados desde la Fase 2 y llevan meses ahí,
+así que ningún test corrió nunca contra una DB realmente vacía hasta CI.
+
+`pnpm seed:exercises` (el seed real, con media) no es la solución para CI: pega a
+wger/free-exercise-db, necesita `ffmpeg`, tarda 30-60 minutos. `data/exercises.sample.json`
+(el fixture de ~30 ejercicios de la Fase 2, pensado para "tests sin red") tampoco
+alcanza tal cual: se armó por tipo de media disponible, no garantiza contener los
+slugs específicos que `ROUTINE_TEMPLATES` referencia.
+
+Fix: `scripts/seed-ci-fixture.ts` — deriva la lista de slugs necesarios de
+`ROUTINE_TEMPLATES` directamente (no una lista a mano, para no desincronizarse si
+una plantilla cambia) e inserta esos ejercicios con datos mínimos (sin media, sin
+wger), sólo para que los tests tengan qué referenciar. Se agregó como paso de CI
+entre `db:migrate` y `test:integration`. Probado contra una Postgres 17 realmente
+vacía en un contenedor descartable (`docker run postgres:17-alpine` limpio, sin el
+volumen de datos de este proyecto) antes de confiarlo a CI de nuevo.
+
+**Regla del proyecto:** ADR-026, 027 y 028 son el mismo problema en tres capas
+distintas (acción de pnpm, tipos de Next, datos de Postgres): nada de lo que "corre
+bien en mi máquina" está realmente probado hasta que corre contra un entorno
+genuinamente limpio. Antes de confiar en el primer CI real de un proyecto nuevo,
+vale la pena simular ese entorno a mano (contenedor descartable, checkout limpio) en
+vez de gastar los ciclos de feedback de CI para encontrar cada capa una por una.
