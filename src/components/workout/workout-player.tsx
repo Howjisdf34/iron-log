@@ -270,6 +270,7 @@ export function WorkoutPlayer({
               <ExerciseCard
                 exerciseName={current.exercise.nameEs}
                 media={current.media}
+                instructions={current.exercise.instructionsEs}
                 onOpenDetail={() => setDetailOpen(true)}
               />
 

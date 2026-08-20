@@ -7,6 +7,7 @@ import type { PlayerMedia } from "@/server/workout/player-data";
 interface ExerciseCardProps {
   exerciseName: string;
   media: PlayerMedia | null;
+  instructions: string[];
   onOpenDetail: () => void;
 }
 
@@ -15,7 +16,12 @@ interface ExerciseCardProps {
  * viewport (IntersectionObserver) o con la pestaña oculta — no quemar
  * batería (CLAUDE.md §5.3).
  */
-export function ExerciseCard({ exerciseName, media, onOpenDetail }: ExerciseCardProps) {
+export function ExerciseCard({
+  exerciseName,
+  media,
+  instructions,
+  onOpenDetail,
+}: ExerciseCardProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -78,6 +84,19 @@ export function ExerciseCard({ exerciseName, media, onOpenDetail }: ExerciseCard
             className="size-full object-cover"
             loading="eager"
           />
+        ) : instructions.length > 0 ? (
+          <div className="flex size-full flex-col justify-center gap-1 overflow-hidden bg-muted/50 p-4 text-left">
+            <p className="text-xs font-medium text-muted-foreground">
+              Sin video — cómo se hace
+            </p>
+            <ol className="list-decimal space-y-0.5 pl-4 text-sm text-foreground">
+              {instructions.slice(0, 3).map((step, i) => (
+                <li key={i} className="line-clamp-2">
+                  {step}
+                </li>
+              ))}
+            </ol>
+          </div>
         ) : (
           <div className="flex size-full items-center justify-center text-sm text-muted-foreground">
             Sin video disponible
