@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Dumbbell, Heart, RefreshCw, TrendingUp, type LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -12,6 +13,13 @@ const GOAL_LABEL: Record<string, string> = {
   recomp: "Recomposición",
 };
 
+const GOAL_ICON: Record<string, LucideIcon> = {
+  strength: Dumbbell,
+  hypertrophy: TrendingUp,
+  endurance: Heart,
+  recomp: RefreshCw,
+};
+
 export function RoutineCard({ routine }: { routine: Routine }) {
   async function handleDuplicate() {
     "use server";
@@ -22,13 +30,20 @@ export function RoutineCard({ routine }: { routine: Routine }) {
     await archiveRoutine(routine.id);
   }
 
+  const GoalIcon = GOAL_ICON[routine.goal] ?? Dumbbell;
+
   return (
     <Card className="transition-colors active:scale-[0.99]">
-      <Link href={`/rutinas/${routine.id}`} className="block">
-        <h2 className="text-lg font-semibold text-foreground">{routine.name}</h2>
-        {routine.description ? (
-          <p className="text-sm text-muted-foreground">{routine.description}</p>
-        ) : null}
+      <Link href={`/rutinas/${routine.id}`} className="flex items-start gap-3">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted">
+          <GoalIcon className="size-5 text-muted-foreground" />
+        </div>
+        <div className="min-w-0">
+          <h2 className="text-lg font-semibold text-foreground">{routine.name}</h2>
+          {routine.description ? (
+            <p className="text-sm text-muted-foreground">{routine.description}</p>
+          ) : null}
+        </div>
       </Link>
       <div className="flex flex-wrap gap-2">
         <Badge variant="secondary">{GOAL_LABEL[routine.goal] ?? routine.goal}</Badge>
