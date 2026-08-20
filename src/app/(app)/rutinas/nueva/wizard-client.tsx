@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { StepIndicator } from "@/components/ui/step-indicator";
 import { springs } from "@/lib/motion/springs";
 import { estimateSessionMinutes } from "@/lib/duration-estimate";
 import { ROUTINE_TEMPLATES, type TemplateGoal } from "@/server/routines/templates";
@@ -22,6 +23,13 @@ const GOALS: { value: TemplateGoal; label: string }[] = [
 const DAYS_OPTIONS = [2, 3, 4, 5, 6];
 
 type Step = "goal" | "days" | "template" | "blank-name";
+
+const STEP_INDEX: Record<Step, number> = {
+  goal: 0,
+  days: 1,
+  template: 2,
+  "blank-name": 3,
+};
 
 export function WizardClient() {
   const router = useRouter();
@@ -71,6 +79,7 @@ export function WizardClient() {
 
   return (
     <div className="space-y-6">
+      <StepIndicator total={4} current={STEP_INDEX[step]} />
       <AnimatePresence mode="wait">
         {step === "goal" && (
           <motion.div
@@ -81,7 +90,7 @@ export function WizardClient() {
             transition={springs.smooth}
             className="space-y-3"
           >
-            <p className="text-sm text-muted-foreground">1. ¿Cuál es tu objetivo?</p>
+            <p className="text-sm text-muted-foreground">¿Cuál es tu objetivo?</p>
             <div className="grid grid-cols-2 gap-3">
               {GOALS.map((g) => (
                 <Button
@@ -111,7 +120,7 @@ export function WizardClient() {
             transition={springs.smooth}
             className="space-y-3"
           >
-            <p className="text-sm text-muted-foreground">2. ¿Cuántos días por semana?</p>
+            <p className="text-sm text-muted-foreground">¿Cuántos días por semana?</p>
             <div className="flex flex-wrap gap-3">
               {DAYS_OPTIONS.map((d) => (
                 <Button
@@ -144,7 +153,7 @@ export function WizardClient() {
             className="space-y-4"
           >
             <p className="text-sm text-muted-foreground">
-              3. Elegí una plantilla o empezá en blanco
+              Elegí una plantilla o empezá en blanco
             </p>
 
             {matchingTemplates.length > 0 && (
@@ -201,7 +210,7 @@ export function WizardClient() {
             transition={springs.smooth}
             className="space-y-4"
           >
-            <p className="text-sm text-muted-foreground">4. Nombre de la rutina</p>
+            <p className="text-sm text-muted-foreground">Nombre de la rutina</p>
             <div className="space-y-2">
               <Label htmlFor="blank-name">Nombre</Label>
               <Input
