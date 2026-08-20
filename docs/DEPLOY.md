@@ -68,10 +68,18 @@ aparte).
    -   build:
    -     context: .
    -     dockerfile: Dockerfile
-   +   image: ghcr.io/<tu-usuario>/iron-log:latest
+   +   image: ghcr.io/<tu-usuario-en-minusculas>/iron-log:latest
    ```
 
    (Coolify no necesita el Dockerfile si ya le das la imagen construida.)
+
+   **`<tu-usuario>` va todo en minúsculas, aunque tu usuario de GitHub
+   tenga mayúsculas.** `docker/metadata-action` publica la imagen en
+   GHCR ya normalizada a minúsculas (es un requisito del formato de
+   referencias de Docker), así que si tu usuario es `Howjisdf34` la
+   imagen real es `ghcr.io/howjisdf34/iron-log:latest`. Usar la
+   capitalización original falla en el `pull` con
+   `invalid reference format: repository name ... must be lowercase`.
 3. **No agregues labels de Traefik a mano** — Coolify los inyecta solo
    cuando configurás el dominio en el paso siguiente.
 4. Configurá el dominio: `rutinas.ohmdail.com`, puerto interno `3000`
