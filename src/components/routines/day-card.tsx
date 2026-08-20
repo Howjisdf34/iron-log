@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Play, X } from "lucide-react";
+import { ChevronDown, Play, X } from "lucide-react";
 import {
   DndContext,
   PointerSensor,
@@ -18,19 +18,25 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { ExerciseRow } from "./exercise-row";
 import { ExercisePicker } from "./exercise-picker";
 import { estimateSessionMinutes } from "@/lib/duration-estimate";
 import { addExerciseToDay, removeDay, reorderExercises } from "@/server/actions/routines";
 import { startWorkoutAction } from "@/server/actions/workout";
+import { cn } from "@/lib/utils";
 import type { RoutineDayWithDetails } from "@/server/db/routines";
 import type { Exercise } from "@/db/schema";
 
 export function DayCard({
   day,
+  expanded,
+  onToggleExpanded,
   onDayRemoved,
 }: {
   day: RoutineDayWithDetails;
+  expanded: boolean;
+  onToggleExpanded: () => void;
   onDayRemoved: () => void;
 }) {
   const router = useRouter();
@@ -73,14 +79,27 @@ export function DayCard({
   }
 
   return (
-    <div className="space-y-3 rounded-2xl border border-border p-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="font-semibold text-foreground">{day.name}</h3>
-          <p className="text-xs tabular-nums text-muted-foreground">
-            {exercises.length} ejercicios · ~{minutes} min
-          </p>
-        </div>
+    <Card className="gap-3">
+      <div className="flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={onToggleExpanded}
+          aria-expanded={expanded}
+          className="flex min-w-0 flex-1 items-center gap-2 py-1 text-left active:scale-[0.99]"
+        >
+          <div className="min-w-0">
+            <h3 className="font-semibold text-foreground">{day.name}</h3>
+            <p className="text-xs tabular-nums text-muted-foreground">
+              {exercises.length} ejercicios · ~{minutes} min
+            </p>
+          </div>
+          <ChevronDown
+            className={cn(
+              "size-5 shrink-0 text-muted-foreground transition-transform",
+              expanded && "rotate-180",
+            )}
+          />
+        </button>
         <div className="flex shrink-0 items-center gap-1">
           {exercises.length > 0 ? (
             <form action={startWorkoutAction.bind(null, day.id)}>
@@ -101,43 +120,47 @@ export function DayCard({
         </div>
       </div>
 
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <SortableContext
-          items={exercises.map((e) => e.id)}
-          strategy={verticalListSortingStrategy}
-        >
-          <div className="space-y-2">
-            {exercises.map((exercise) => (
-              <ExerciseRow
-                key={exercise.id}
-                routineExercise={exercise}
-                onRemoved={() =>
-                  setExercises((prev) => prev.filter((e) => e.id !== exercise.id))
-                }
-              />
-            ))}
-          </div>
-        </SortableContext>
-      </DndContext>
+      {expanded ? (
+        <>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={exercises.map((e) => e.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-2">
+                {exercises.map((exercise) => (
+                  <ExerciseRow
+                    key={exercise.id}
+                    routineExercise={exercise}
+                    onRemoved={() =>
+                      setExercises((prev) => prev.filter((e) => e.id !== exercise.id))
+                    }
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
 
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={() => setPickerOpen(true)}
-      >
-        + Agregar ejercicio
-      </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setPickerOpen(true)}
+          >
+            + Agregar ejercicio
+          </Button>
+        </>
+      ) : null}
 
       <ExercisePicker
         open={pickerOpen}
         onOpenChange={setPickerOpen}
         onSelect={handleSelectExercise}
       />
-    </div>
+    </Card>
   );
 }

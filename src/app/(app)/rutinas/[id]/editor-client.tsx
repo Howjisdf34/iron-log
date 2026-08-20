@@ -37,6 +37,33 @@ const GOAL_LABEL: Record<string, string> = {
 export function RoutineEditorClient({ routine }: { routine: RoutineWithDetails }) {
   const router = useRouter();
   const [days, setDays] = useState(routine.days);
+  // `routine` es un objeto nuevo en cada refresh del server (router.refresh()
+  // desde DayCard al agregar/quitar un ejercicio) — sin esto, `days` queda
+  // pisado con datos viejos porque useState sólo lee el valor inicial. Este
+  // componente no remonta en ese caso (el key de page.tsx sólo cambia si se
+  // agrega/quita un DÍA, no un ejercicio) — bug real: los ejercicios se
+  // guardaban en la DB pero no aparecían en pantalla hasta recargar.
+  const [prevRoutine, setPrevRoutine] = useState(routine);
+  if (routine !== prevRoutine) {
+    setPrevRoutine(routine);
+    setDays(routine.days);
+  }
+
+  // Vive acá (no dentro de DayCard) para sobrevivir a que un día remonte al
+  // agregarle/quitarle un ejercicio (ver comment del key más abajo) — si no,
+  // el día se cierra solo apenas agregás el primer ejercicio. Un día recién
+  // creado (sin ejercicios) arranca abierto.
+  const [expandedDayIds, setExpandedDayIds] = useState(
+    () => new Set(routine.days.filter((d) => d.exercises.length === 0).map((d) => d.id)),
+  );
+  function toggleDayExpanded(dayId: string) {
+    setExpandedDayIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(dayId)) next.delete(dayId);
+      else next.add(dayId);
+      return next;
+    });
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -123,6 +150,8 @@ export function RoutineEditorClient({ routine }: { routine: RoutineWithDetails }
               >
                 <DayCard
                   day={day}
+                  expanded={expandedDayIds.has(day.id)}
+                  onToggleExpanded={() => toggleDayExpanded(day.id)}
                   onDayRemoved={() =>
                     setDays((prev) => prev.filter((d) => d.id !== day.id))
                   }
