@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import type { Routine } from "@/db/schema";
 import { archiveRoutine, duplicateRoutine } from "@/server/actions/routines";
 
@@ -22,7 +23,7 @@ export function RoutineCard({ routine }: { routine: Routine }) {
   }
 
   return (
-    <div className="space-y-3 rounded-2xl border border-border bg-card p-4">
+    <Card className="transition-colors active:scale-[0.99]">
       <Link href={`/rutinas/${routine.id}`} className="block">
         <h2 className="text-lg font-semibold text-foreground">{routine.name}</h2>
         {routine.description ? (
@@ -45,6 +46,6 @@ export function RoutineCard({ routine }: { routine: Routine }) {
           </Button>
         </form>
       </div>
-    </div>
+    </Card>
   );
 }

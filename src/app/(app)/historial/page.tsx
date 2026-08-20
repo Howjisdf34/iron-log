@@ -11,6 +11,7 @@ import { weeklyMuscleVolume } from "@/lib/muscle-volume";
 import { isoWeekKey } from "@/lib/date-buckets";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { TrainingHeatmap } from "@/components/history/heatmap";
 import { MuscleVolumeChart } from "@/components/history/muscle-volume-chart";
 import { ExportImportPanel } from "@/components/history/export-import-panel";
@@ -66,7 +67,7 @@ export default async function HistorialPage() {
       </header>
 
       <section className="grid grid-cols-2 gap-3">
-        <div className="rounded-2xl border border-border p-4">
+        <Card className="gap-1">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Flame className="size-4" />
             <span className="text-sm">Racha</span>
@@ -77,14 +78,14 @@ export default async function HistorialPage() {
           <p className="text-xs text-muted-foreground">
             Récord: {overview.streak.longest} días
           </p>
-        </div>
-        <div className="rounded-2xl border border-border p-4">
+        </Card>
+        <Card className="gap-1">
           <p className="text-sm text-muted-foreground">Adherencia (7 días)</p>
           <p className="text-2xl font-bold tabular-nums text-foreground">
             {overview.adherencePct != null ? `${overview.adherencePct}%` : "—"}
           </p>
           <p className="text-xs text-muted-foreground">vs. días/semana de tu rutina</p>
-        </div>
+        </Card>
       </section>
 
       <section className="space-y-2">

@@ -76,7 +76,7 @@ export function BodyMetricsPanel({ metrics: initialMetrics }: { metrics: BodyMet
 
       <form
         onSubmit={handleSubmit}
-        className="space-y-3 rounded-2xl border border-border p-4"
+        className="space-y-3 rounded-2xl border border-border bg-card p-4"
       >
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
