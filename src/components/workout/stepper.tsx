@@ -4,7 +4,6 @@ import { useRef, useState } from "react";
 import { Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 
 interface StepperProps {
   value: number | null;
@@ -14,6 +13,9 @@ interface StepperProps {
   min?: number;
   max?: number;
   ariaLabel: string;
+  /** Etiqueta chica arriba del valor ("kg", "reps", "RPE") — sin esto no hay
+   * forma de saber qué stepper es cuál salvo por el sufijo del peso. */
+  label?: string;
 }
 
 /**
@@ -28,6 +30,7 @@ export function Stepper({
   min = 0,
   max = 999,
   ariaLabel,
+  label,
 }: StepperProps) {
   const [editing, setEditing] = useState(false);
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -43,67 +46,70 @@ export function Stepper({
     if (pressTimer.current) clearTimeout(pressTimer.current);
   }
 
-  if (editing) {
-    return (
-      <Input
-        type="number"
-        autoFocus
-        inputMode="decimal"
-        aria-label={ariaLabel}
-        className="h-12 w-16 shrink-0 text-center text-base"
-        defaultValue={value ?? ""}
-        onBlur={(e) => {
-          const n = Number(e.target.value);
-          onChange(Number.isFinite(n) && e.target.value !== "" ? clamp(n) : null);
-          setEditing(false);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") e.currentTarget.blur();
-        }}
-      />
-    );
-  }
-
   return (
-    <div className="flex shrink-0 items-center gap-1">
-      <Button
-        type="button"
-        size="icon-touch"
-        variant="outline"
-        onClick={() => onChange(clamp((value ?? 0) - step))}
-        aria-label={`Restar ${ariaLabel}`}
-      >
-        <Minus className="size-4" />
-      </Button>
-      <span
-        role="button"
-        tabIndex={0}
-        onPointerDown={startPress}
-        onPointerUp={endPress}
-        onPointerLeave={endPress}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            setEditing(true);
-          }
-        }}
-        aria-label={`${ariaLabel}, mantén presionado para escribir`}
-        className={cn(
-          "min-w-11 select-none rounded-lg px-1 text-center text-base font-semibold tabular-nums text-foreground",
-        )}
-      >
-        {value ?? "–"}
-        {suffix}
-      </span>
-      <Button
-        type="button"
-        size="icon-touch"
-        variant="outline"
-        onClick={() => onChange(clamp((value ?? 0) + step))}
-        aria-label={`Sumar ${ariaLabel}`}
-      >
-        <Plus className="size-4" />
-      </Button>
+    <div className="flex min-w-0 flex-col items-center gap-1">
+      {label ? (
+        <span className="text-[0.6875rem] font-medium tracking-wide text-muted-foreground uppercase">
+          {label}
+        </span>
+      ) : null}
+      {editing ? (
+        <Input
+          type="number"
+          autoFocus
+          inputMode="decimal"
+          aria-label={ariaLabel}
+          className="h-12 w-full max-w-20 text-center text-base"
+          defaultValue={value ?? ""}
+          onBlur={(e) => {
+            const n = Number(e.target.value);
+            onChange(Number.isFinite(n) && e.target.value !== "" ? clamp(n) : null);
+            setEditing(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.currentTarget.blur();
+          }}
+        />
+      ) : (
+        <div className="flex items-center gap-1">
+          <Button
+            type="button"
+            size="icon-touch"
+            variant="outline"
+            onClick={() => onChange(clamp((value ?? 0) - step))}
+            aria-label={`Restar ${ariaLabel}`}
+          >
+            <Minus className="size-4" />
+          </Button>
+          <span
+            role="button"
+            tabIndex={0}
+            onPointerDown={startPress}
+            onPointerUp={endPress}
+            onPointerLeave={endPress}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setEditing(true);
+              }
+            }}
+            aria-label={`${ariaLabel}, mantén presionado para escribir`}
+            className="min-w-9 select-none rounded-lg px-0.5 text-center text-base font-semibold tabular-nums text-foreground"
+          >
+            {value ?? "–"}
+            {suffix}
+          </span>
+          <Button
+            type="button"
+            size="icon-touch"
+            variant="outline"
+            onClick={() => onChange(clamp((value ?? 0) + step))}
+            aria-label={`Sumar ${ariaLabel}`}
+          >
+            <Plus className="size-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

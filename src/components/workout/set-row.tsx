@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Stepper } from "./stepper";
 import { springs } from "@/lib/motion/springs";
+import { cn } from "@/lib/utils";
 import type { PlayerLoggedSet, PlayerPrescribedSet } from "@/server/workout/player-data";
 
 const SET_TYPE_LABEL: Record<string, string> = {
@@ -111,82 +112,94 @@ export function SetRow({
         opacity: locked ? 0.5 : 1,
       }}
       transition={springs.smooth}
-      className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 px-3 py-2"
+      className="space-y-2.5 rounded-xl border border-border/60 px-3 py-2.5"
     >
-      <span className="w-6 shrink-0 text-center text-sm font-semibold tabular-nums text-muted-foreground">
-        {displayNumber}
-      </span>
-      <Badge variant="outline" className="shrink-0">
-        {SET_TYPE_LABEL[setType] ?? setType}
-      </Badge>
-
-      {locked ? (
-        <span className="flex-1 text-sm tabular-nums text-muted-foreground">
-          {prescribed?.targetRepsMin && prescribed.targetRepsMax
-            ? `${prescribed.targetRepsMin}-${prescribed.targetRepsMax} reps`
-            : prescribed?.targetReps
-              ? `${prescribed.targetReps} reps`
-              : "—"}
-          {prescribed?.targetWeightKg ? ` @ ${prescribed.targetWeightKg}kg` : ""}
-          {prescribed?.targetRpe ? ` · RPE ${prescribed.targetRpe}` : ""}
+      <div className="flex items-center gap-2">
+        <span className="w-6 shrink-0 text-center text-sm font-semibold tabular-nums text-muted-foreground">
+          {displayNumber}
         </span>
-      ) : isSettled ? (
-        <div className="flex flex-1 items-center justify-between gap-2 text-foreground">
-          <span className="tabular-nums">
-            {tracksWeight && logged?.weightKg != null ? `${logged.weightKg} kg` : null}
-            {tracksWeight && tracksReps && logged?.weightKg != null ? " × " : null}
-            {tracksReps && logged?.reps != null ? `${logged.reps} reps` : null}
-            {logged?.rpe != null ? ` · RPE ${logged.rpe}` : ""}
-            {improvedVsLastTime ? " 📈" : ""}
+        <Badge variant="outline" className="shrink-0">
+          {SET_TYPE_LABEL[setType] ?? setType}
+        </Badge>
+
+        {locked ? (
+          <span className="flex-1 text-sm tabular-nums text-muted-foreground">
+            {prescribed?.targetRepsMin && prescribed.targetRepsMax
+              ? `${prescribed.targetRepsMin}-${prescribed.targetRepsMax} reps`
+              : prescribed?.targetReps
+                ? `${prescribed.targetReps} reps`
+                : "—"}
+            {prescribed?.targetWeightKg ? ` @ ${prescribed.targetWeightKg}kg` : ""}
+            {prescribed?.targetRpe ? ` · RPE ${prescribed.targetRpe}` : ""}
           </span>
-          {isFailed ? (
-            <X className="size-4 shrink-0 text-destructive" />
-          ) : (
-            <Check className="size-4 shrink-0 text-success" />
-          )}
-        </div>
-      ) : (
+        ) : isSettled ? (
+          <div className="flex flex-1 items-center justify-between gap-2 text-foreground">
+            <span className="tabular-nums">
+              {tracksWeight && logged?.weightKg != null ? `${logged.weightKg} kg` : null}
+              {tracksWeight && tracksReps && logged?.weightKg != null ? " × " : null}
+              {tracksReps && logged?.reps != null ? `${logged.reps} reps` : null}
+              {logged?.rpe != null ? ` · RPE ${logged.rpe}` : ""}
+              {improvedVsLastTime ? " 📈" : ""}
+            </span>
+            {isFailed ? (
+              <X className="size-4 shrink-0 text-destructive" />
+            ) : (
+              <Check className="size-4 shrink-0 text-success" />
+            )}
+          </div>
+        ) : null}
+      </div>
+
+      {!locked && !isSettled ? (
         <>
-          {tracksWeight && (
+          <div
+            className={cn(
+              "grid gap-2",
+              tracksWeight && tracksReps ? "grid-cols-3" : "grid-cols-2",
+            )}
+          >
+            {tracksWeight && (
+              <Stepper
+                label="kg"
+                value={weightKg}
+                onChange={setWeightKg}
+                step={incrementKg}
+                min={0}
+                max={500}
+                ariaLabel="peso"
+              />
+            )}
+            {tracksReps && (
+              <Stepper
+                label="reps"
+                value={reps}
+                onChange={(v) => setReps(v != null ? clampReps(v) : v)}
+                step={1}
+                min={0}
+                max={100}
+                ariaLabel="repeticiones"
+              />
+            )}
             <Stepper
-              value={weightKg}
-              onChange={setWeightKg}
-              step={incrementKg}
-              suffix="kg"
-              min={0}
-              max={500}
-              ariaLabel="peso"
+              label="RPE"
+              value={rpe}
+              onChange={(v) => setRpe(v != null ? clampRpe(v) : v)}
+              step={0.5}
+              min={1}
+              max={10}
+              ariaLabel="RPE"
             />
-          )}
-          {tracksReps && (
-            <Stepper
-              value={reps}
-              onChange={(v) => setReps(v != null ? clampReps(v) : v)}
-              step={1}
-              min={0}
-              max={100}
-              ariaLabel="repeticiones"
-            />
-          )}
-          <Stepper
-            value={rpe}
-            onChange={(v) => setRpe(v != null ? clampRpe(v) : v)}
-            step={0.5}
-            min={1}
-            max={10}
-            ariaLabel="RPE"
-          />
+          </div>
           <Button
             type="button"
-            size="icon-touch"
-            className="ml-auto shrink-0 bg-success text-background hover:bg-success/80"
+            size="touch"
+            className="w-full bg-success text-background hover:bg-success/80"
             onClick={handleComplete}
-            aria-label="Completar serie"
           >
-            <Check className="size-5" />
+            <Check className="size-5" /> Completar serie
           </Button>
         </>
-      )}
+      ) : null}
     </motion.div>
   );
 }
