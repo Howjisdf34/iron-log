@@ -1,7 +1,6 @@
 "use client";
 
 import { motion } from "motion/react";
-import { Button } from "@/components/ui/button";
 import { listStagger } from "@/lib/motion/springs";
 import type { FinishSessionSummary } from "@/server/workout/mutations";
 
@@ -9,6 +8,7 @@ interface WorkoutSummaryProps {
   summary: FinishSessionSummary;
   prMessages: string[];
   dayName: string | null;
+  startedAt: string;
   onDone: () => void;
 }
 
@@ -19,76 +19,7 @@ function formatDuration(seconds: number): string {
   return h > 0 ? `${h}h ${mm}min` : `${mm} min`;
 }
 
-/** Pantalla de resumen "wrapped" — una recompensa, no un formulario (CLAUDE.md §5.3). */
-export function WorkoutSummary({
-  summary,
-  prMessages,
-  dayName,
-  onDone,
-}: WorkoutSummaryProps) {
-  const volumeDelta =
-    summary.previousVolumeKg != null
-      ? summary.totalVolumeKg - summary.previousVolumeKg
-      : null;
-  const setsDelta =
-    summary.previousTotalSets != null
-      ? summary.totalSets - summary.previousTotalSets
-      : null;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-background p-6"
-    >
-      <motion.div
-        variants={listStagger.container}
-        initial="hidden"
-        animate="show"
-        className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 py-10 text-center"
-      >
-        <motion.div variants={listStagger.item}>
-          <p className="text-sm text-muted-foreground">Entrenamiento completo</p>
-          <h1 className="text-2xl font-bold text-foreground">
-            {dayName ?? "Entrenamiento libre"}
-          </h1>
-        </motion.div>
-
-        <motion.div variants={listStagger.item} className="grid grid-cols-3 gap-3">
-          <StatCard label="Duración" value={formatDuration(summary.durationSeconds)} />
-          <StatCard label="Series" value={String(summary.totalSets)} delta={setsDelta} />
-          <StatCard
-            label="Volumen"
-            value={`${Math.round(summary.totalVolumeKg)}kg`}
-            delta={volumeDelta != null ? Math.round(volumeDelta) : null}
-          />
-        </motion.div>
-
-        {prMessages.length > 0 ? (
-          <motion.div
-            variants={listStagger.item}
-            className="space-y-2 rounded-2xl border border-primary/40 bg-primary/10 p-4 text-left"
-          >
-            <p className="text-sm font-semibold text-primary">🔥 Records personales</p>
-            <ul className="space-y-1 text-sm text-foreground">
-              {prMessages.map((m, i) => (
-                <li key={i}>{m}</li>
-              ))}
-            </ul>
-          </motion.div>
-        ) : null}
-
-        <motion.div variants={listStagger.item}>
-          <Button type="button" size="touch" className="w-full" onClick={onDone}>
-            Listo
-          </Button>
-        </motion.div>
-      </motion.div>
-    </motion.div>
-  );
-}
-
-function StatCard({
+function MetricRow({
   label,
   value,
   delta,
@@ -98,17 +29,114 @@ function StatCard({
   delta?: number | null;
 }) {
   return (
-    <div className="rounded-2xl bg-card p-3">
-      <p className="text-lg font-bold tabular-nums text-foreground">{value}</p>
-      <p className="text-xs text-muted-foreground">{label}</p>
-      {delta != null && delta !== 0 ? (
-        <p
-          className={`text-xs tabular-nums ${delta > 0 ? "text-success" : "text-destructive"}`}
-        >
-          {delta > 0 ? "+" : ""}
-          {delta} vs. anterior
-        </p>
-      ) : null}
+    <div className="flex items-center justify-between border-b border-border py-4 last:border-b-0">
+      <span className="text-[15px] text-ink2">{label}</span>
+      <span className="flex items-baseline gap-2">
+        <span className="text-2xl font-semibold tabular-nums text-foreground">
+          {value}
+        </span>
+        {delta != null && delta !== 0 ? (
+          <span
+            className={`text-xs font-semibold tabular-nums ${
+              delta > 0 ? "text-success" : "text-muted-foreground"
+            }`}
+          >
+            {delta > 0 ? "+" : ""}
+            {delta}
+          </span>
+        ) : null}
+      </span>
     </div>
+  );
+}
+
+/** Pantalla de resumen "wrapped" — una recompensa, no un formulario (CLAUDE.md §5.3). */
+export function WorkoutSummary({
+  summary,
+  prMessages,
+  dayName,
+  startedAt,
+  onDone,
+}: WorkoutSummaryProps) {
+  const volumeDelta =
+    summary.previousVolumeKg != null
+      ? Math.round(summary.totalVolumeKg - summary.previousVolumeKg)
+      : null;
+  const setsDelta =
+    summary.previousTotalSets != null
+      ? summary.totalSets - summary.previousTotalSets
+      : null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35 }}
+      className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-background px-[22px] pt-[26px] pb-10"
+    >
+      <motion.div
+        variants={listStagger.container}
+        initial="hidden"
+        animate="show"
+        className="mx-auto w-full max-w-md"
+      >
+        <motion.div variants={listStagger.item}>
+          <p className="text-xs font-semibold tracking-[0.1em] text-primary uppercase">
+            Entrenamiento completo
+          </p>
+          <h1 className="mt-1 text-[36px] leading-tight font-semibold tracking-[-0.03em] text-foreground">
+            {dayName ?? "Entrenamiento libre"}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {new Date(startedAt).toLocaleDateString("es-MX", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+            })}
+          </p>
+        </motion.div>
+
+        <motion.div variants={listStagger.item} className="mt-[34px]">
+          <MetricRow label="Duración" value={formatDuration(summary.durationSeconds)} />
+          <MetricRow
+            label="Volumen"
+            value={`${Math.round(summary.totalVolumeKg)} kg`}
+            delta={volumeDelta}
+          />
+          <MetricRow label="Series" value={String(summary.totalSets)} delta={setsDelta} />
+          {summary.averageRpe != null ? (
+            <MetricRow label="RPE medio" value={String(summary.averageRpe)} />
+          ) : null}
+        </motion.div>
+
+        {prMessages.length > 0 ? (
+          <motion.div
+            variants={listStagger.item}
+            className="mt-7 space-y-2 rounded-[22px] bg-accent-soft p-5"
+          >
+            <p className="text-xs font-semibold tracking-[0.09em] text-primary uppercase">
+              Récord personal
+            </p>
+            <ul className="space-y-1.5">
+              {prMessages.map((m, i) => (
+                <li key={i} className="text-[15px] font-medium text-foreground">
+                  {m}
+                </li>
+              ))}
+            </ul>
+          </motion.div>
+        ) : null}
+
+        <motion.div variants={listStagger.item} className="mt-8">
+          <button
+            type="button"
+            onClick={onDone}
+            className="w-full rounded-2xl bg-foreground py-5 text-base font-semibold text-background"
+          >
+            Listo
+          </button>
+        </motion.div>
+      </motion.div>
+    </motion.div>
   );
 }

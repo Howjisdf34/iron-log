@@ -20,7 +20,7 @@ export default async function EntrenarPage({
   const data = await getPlayerData(db, userId, sessionId);
   if (!data) notFound();
 
-  if (data.status !== "in_progress") {
+  if (data.status === "abandoned") {
     return (
       <main className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
         <p className="text-foreground">Este entrenamiento ya terminó.</p>
@@ -30,6 +30,14 @@ export default async function EntrenarPage({
       </main>
     );
   }
+
+  // Sesiones "completed" siguen renderizando WorkoutPlayer (no un dead-end):
+  // terminar un entreno invoca finishSessionAction, que revalida rutas y
+  // dispara un refresh automático de ESTA página — si acá cortáramos por
+  // status, se desmontaría WorkoutPlayer justo cuando pone `summary` en su
+  // estado local, perdiendo la pantalla de resumen. WorkoutPlayer ya sabe
+  // mostrar `summary` con los datos que la propia acción de terminar
+  // devolvió, así que sigue montado y el estado sobrevive al refresh.
 
   const [plateInventory, settings] = await Promise.all([
     getOrCreatePlateInventoryForUser(db, userId),

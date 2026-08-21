@@ -250,6 +250,7 @@ export interface FinishSessionSummary {
   totalVolumeKg: number;
   totalSets: number;
   durationSeconds: number;
+  averageRpe: number | null;
   previousVolumeKg: number | null;
   previousTotalSets: number | null;
 }
@@ -269,6 +270,15 @@ export async function finishSessionForUser(
     0,
   );
   const totalSets = completedSets.length;
+  const rpeValues = completedSets
+    .map((s) => (s.rpe != null ? Number(s.rpe) : null))
+    .filter((rpe): rpe is number => rpe != null);
+  const averageRpe =
+    rpeValues.length > 0
+      ? Math.round(
+          (rpeValues.reduce((sum, rpe) => sum + rpe, 0) / rpeValues.length) * 10,
+        ) / 10
+      : null;
   const finishedAt = new Date();
   const durationSeconds = Math.round(
     (finishedAt.getTime() - session.startedAt.getTime()) / 1000,
@@ -309,6 +319,7 @@ export async function finishSessionForUser(
     totalVolumeKg,
     totalSets,
     durationSeconds,
+    averageRpe,
     previousVolumeKg,
     previousTotalSets,
   };

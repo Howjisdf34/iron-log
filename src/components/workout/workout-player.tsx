@@ -294,6 +294,7 @@ export function WorkoutPlayer({
         summary={summary}
         prMessages={prMessages}
         dayName={initialData.dayName}
+        startedAt={initialData.startedAt}
         onDone={handleSummaryDone}
       />
     );
@@ -309,7 +310,7 @@ export function WorkoutPlayer({
         onExit={handleExit}
         onFinish={handleFinish}
         isFinishing={isFinishing}
-        canFinish={isOnline}
+        canFinish={isOnline && initialData.status === "in_progress"}
         mode={mode}
         onModeChange={handleModeChange}
       />
