@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Dumbbell, History, Home, Scale } from "lucide-react";
+import { Dumbbell, History, Home, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TABS = [
   { href: "/", label: "Inicio", icon: Home },
   { href: "/rutinas", label: "Rutinas", icon: Dumbbell },
   { href: "/historial", label: "Historial", icon: History },
-  { href: "/cuerpo", label: "Cuerpo", icon: Scale },
+  { href: "/perfil", label: "Perfil", icon: User },
 ] as const;
 
 function isActive(pathname: string, href: string) {
@@ -30,7 +30,7 @@ export function BottomNav() {
       className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 backdrop-blur"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
-      <ul className="mx-auto flex max-w-2xl items-stretch justify-around">
+      <ul className="mx-auto flex max-w-2xl items-stretch justify-around gap-1.5 px-1.5 py-1">
         {TABS.map(({ href, label, icon: Icon }) => {
           const active = isActive(pathname, href);
           return (
@@ -39,11 +39,11 @@ export function BottomNav() {
                 href={href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex min-h-14 flex-col items-center justify-center gap-0.5 text-xs transition-colors active:scale-95",
-                  active ? "text-primary" : "text-muted-foreground",
+                  "flex min-h-14 flex-col items-center justify-center gap-1 rounded-2xl py-2.5 text-[11px] font-medium transition-colors active:scale-95",
+                  active ? "bg-accent-soft text-primary" : "text-muted-foreground",
                 )}
               >
-                <Icon className="size-5" strokeWidth={active ? 2.5 : 2} />
+                <Icon className="size-[21px]" strokeWidth={1.9} />
                 {label}
               </Link>
             </li>

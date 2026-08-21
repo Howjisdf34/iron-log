@@ -20,6 +20,21 @@ export interface PlateBreakdown {
   exact: boolean;
 }
 
+// Colores estándar de disco olímpico (IWF) por kg — ayuda a reconocer el
+// disco de un vistazo real, no sólo decoración. Pesos fuera de esta tabla
+// (microplacas custom, etc.) caen al acento de la app.
+export const PLATE_COLOR: Record<number, string> = {
+  25: "bg-red-600 text-white",
+  20: "bg-blue-600 text-white",
+  15: "bg-yellow-500 text-black",
+  10: "bg-green-600 text-white",
+  5: "border border-border bg-white text-black",
+  2.5: "bg-neutral-900 text-white",
+  1.25: "border border-border bg-zinc-300 text-black",
+  1: "bg-neutral-700 text-white",
+  0.5: "border border-border bg-zinc-400 text-black",
+};
+
 const EPSILON = 0.001;
 
 export function calculatePlateBreakdown(

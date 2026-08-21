@@ -14,7 +14,6 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { TrainingHeatmap } from "@/components/history/heatmap";
 import { MuscleVolumeChart } from "@/components/history/muscle-volume-chart";
-import { ExportImportPanel } from "@/components/history/export-import-panel";
 
 export const metadata = { title: "Historial — Iron Log" };
 export const dynamic = "force-dynamic"; // ver docs/ARCHITECTURE.md ADR-011
@@ -157,11 +156,6 @@ export default async function HistorialPage() {
             ))}
           </ul>
         )}
-      </section>
-
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-muted-foreground">Tus datos</h2>
-        <ExportImportPanel />
       </section>
     </main>
   );
