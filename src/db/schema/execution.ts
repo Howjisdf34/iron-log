@@ -169,8 +169,9 @@ export const userSettings = pgTable(
       .default("2.5"),
     soundsEnabled: boolean("sounds_enabled").notNull().default(true),
     hapticsEnabled: boolean("haptics_enabled").notNull().default(true),
-    /** reservado — v1 es sólo oscuro, ver docs/ARCHITECTURE.md ADR-002. */
     theme: text("theme").notNull().default("dark"),
+    /** "list" | "focus" — modo del Workout Player, ver player-header.tsx. */
+    workoutMode: text("workout_mode").notNull().default("list"),
     language: text("language").notNull().default("es"),
     restAutoStart: boolean("rest_auto_start").notNull().default(true),
     keepScreenAwake: boolean("keep_screen_awake").notNull().default(true),

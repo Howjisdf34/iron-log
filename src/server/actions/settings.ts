@@ -15,3 +15,11 @@ export async function updateThemeAction(theme: UpdateUserSettingsInput["theme"])
   await updateUserSettings(db, userId, input);
   revalidatePath("/", "layout");
 }
+
+export async function updateWorkoutModeAction(
+  workoutMode: UpdateUserSettingsInput["workoutMode"],
+) {
+  const userId = await requireUserId();
+  const input = updateUserSettingsSchema.parse({ workoutMode });
+  await updateUserSettings(db, userId, input);
+}

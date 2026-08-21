@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const updateUserSettingsSchema = z.object({
   theme: z.enum(["light", "dark"]).optional(),
+  workoutMode: z.enum(["list", "focus"]).optional(),
 });
 
 export type UpdateUserSettingsInput = z.infer<typeof updateUserSettingsSchema>;

@@ -6,6 +6,8 @@ import { ChevronLeft, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useNow } from "@/lib/hooks/use-now";
+import { cn } from "@/lib/utils";
+import type { WorkoutMode } from "./workout-mode";
 
 interface PlayerHeaderProps {
   dayName: string | null;
@@ -16,6 +18,8 @@ interface PlayerHeaderProps {
   onFinish: () => void;
   isFinishing: boolean;
   canFinish: boolean;
+  mode: WorkoutMode;
+  onModeChange: (mode: WorkoutMode) => void;
 }
 
 function formatElapsed(ms: number): string {
@@ -37,6 +41,8 @@ export function PlayerHeader({
   onFinish,
   isFinishing,
   canFinish,
+  mode,
+  onModeChange,
 }: PlayerHeaderProps) {
   const now = useNow(1000, true);
   const elapsedMs = now - new Date(startedAt).getTime();
@@ -82,6 +88,22 @@ export function PlayerHeader({
           transition={{ duration: 0.3, ease: "linear" }}
           style={{ transformOrigin: "left" }}
         />
+      </div>
+
+      <div className="flex gap-1 p-2">
+        {(["list", "focus"] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => onModeChange(m)}
+            className={cn(
+              "flex-1 rounded-xl py-2.5 text-sm font-medium transition-colors",
+              mode === m ? "bg-muted text-foreground" : "text-muted-foreground",
+            )}
+          >
+            {m === "list" ? "Lista" : "Enfoque"}
+          </button>
+        ))}
       </div>
 
       <Dialog open={confirmExit} onOpenChange={setConfirmExit}>

@@ -10,6 +10,8 @@ import { PlayerHeader } from "./player-header";
 import { ExerciseCard } from "./exercise-card";
 import { ExerciseDetailSheet } from "./exercise-detail-sheet";
 import { SetRow, type SetRowValues } from "./set-row";
+import { FocusMode } from "./focus-mode";
+import type { WorkoutMode } from "./workout-mode";
 import { RestTimer } from "./rest-timer";
 import { PlateCalculatorSheet } from "./plate-calculator-sheet";
 import { WorkoutSummary } from "./workout-summary";
@@ -31,6 +33,7 @@ import {
   getExercisePlayerInfoAction,
   logSetAction,
 } from "@/server/actions/workout";
+import { updateWorkoutModeAction } from "@/server/actions/settings";
 import type {
   PlayerData,
   PlayerExerciseSlot,
@@ -72,6 +75,30 @@ function findFirstIncompleteIndex(exercises: PlayerExerciseSlot[]): number {
   return idx === -1 ? Math.max(0, exercises.length - 1) : idx;
 }
 
+interface FocusTarget {
+  exerciseIndex: number;
+  rowIndex: number;
+  totalRows: number;
+}
+
+/** Primera serie pendiente de TODA la sesión (no del ejercicio actual) — Modo Enfoque
+ * navega solo, ignorando el índice de ejercicio del carrusel de Modo Lista. */
+function findFocusTarget(
+  exercises: PlayerExerciseSlot[],
+  skippedKeys: Set<string>,
+): FocusTarget | null {
+  for (let i = 0; i < exercises.length; i += 1) {
+    const ex = exercises[i]!;
+    const totalRows = Math.max(ex.prescribedSets.length, 1);
+    for (let row = ex.loggedSets.length; row < totalRows; row += 1) {
+      if (!skippedKeys.has(`${ex.key}-${row}`)) {
+        return { exerciseIndex: i, rowIndex: row, totalRows };
+      }
+    }
+  }
+  return null;
+}
+
 function buildRestLabel(exercise: PlayerExerciseSlot, nextRowIndex: number): string {
   const next = exercise.prescribedSets[nextRowIndex];
   if (!next) return `Siguiente: Serie ${nextRowIndex + 1}`;
@@ -101,6 +128,10 @@ export function WorkoutPlayer({
   );
   const [direction, setDirection] = useState(1);
   const [extraSetsByKey, setExtraSetsByKey] = useState<Record<string, number>>({});
+  const [mode, setMode] = useState<WorkoutMode>(
+    settings.workoutMode === "focus" ? "focus" : "list",
+  );
+  const [skippedKeys, setSkippedKeys] = useState<Set<string>>(new Set());
   const [detailOpen, setDetailOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [plateSheetTarget, setPlateSheetTarget] = useState<number | null>(null);
@@ -131,6 +162,8 @@ export function WorkoutPlayer({
     (sum, ex) => sum + displayCountFor(ex, extraSetsByKey[ex.key] ?? 0),
     0,
   );
+  const focusTarget = findFocusTarget(exercises, skippedKeys);
+  const focusExercise = focusTarget ? exercises[focusTarget.exerciseIndex] : undefined;
 
   function goTo(index: number) {
     if (index < 0 || index >= exercises.length) return;
@@ -208,6 +241,11 @@ export function WorkoutPlayer({
     }
   }
 
+  function handleModeChange(next: WorkoutMode) {
+    setMode(next);
+    void updateWorkoutModeAction(next);
+  }
+
   async function handleUndoSet(exercise: PlayerExerciseSlot, loggedSet: PlayerLoggedSet) {
     await deleteSetLogAction(loggedSet.id);
     setExercises((prev) =>
@@ -272,174 +310,215 @@ export function WorkoutPlayer({
         onFinish={handleFinish}
         isFinishing={isFinishing}
         canFinish={isOnline}
+        mode={mode}
+        onModeChange={handleModeChange}
       />
 
       <PrToast message={prToast} onDismiss={() => setPrToast(null)} />
 
-      <main className="flex-1 space-y-4 p-4">
-        {current ? (
-          <AnimatePresence mode="wait" custom={direction} initial={false}>
-            <motion.div
-              key={current.key}
-              custom={direction}
-              variants={slideVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={springs.smooth}
-              className="space-y-4"
-            >
-              <ExerciseCard
-                exerciseName={current.exercise.nameEs}
-                media={current.media}
-                instructions={current.exercise.instructionsEs}
-                onOpenDetail={() => setDetailOpen(true)}
-              />
-
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="text-lg font-bold text-foreground">
-                  {current.exercise.nameEs}
-                </h2>
-                {current.supersetGroup != null ? (
-                  <Badge variant="secondary">Superserie {current.supersetGroup}</Badge>
-                ) : null}
-              </div>
-
-              {current.lastTimeSets.length > 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  La última vez:{" "}
-                  {current.lastTimeSets
-                    .map((s) => `${s.weightKg ?? "–"}kg×${s.reps ?? "–"}`)
-                    .join(", ")}
-                </p>
-              ) : null}
-
-              <div className="space-y-2">
-                {Array.from({
-                  length: displayCountFor(current, extraSetsByKey[current.key] ?? 0),
-                }).map((_, rowIndex) => {
-                  const prescribed = current.prescribedSets[rowIndex];
-                  const logged = current.loggedSets[rowIndex];
-                  const locked = !logged && rowIndex !== current.loggedSets.length;
-                  return (
-                    <SetRow
-                      key={rowIndex}
-                      displayNumber={rowIndex + 1}
-                      setType={prescribed?.setType ?? logged?.setType ?? "working"}
-                      prescribed={prescribed}
-                      lastTime={current.lastTimeSets[rowIndex]}
-                      logged={logged}
-                      tracksWeight={current.exercise.tracksWeight}
-                      tracksReps={current.exercise.tracksReps}
-                      locked={locked}
-                      onUndo={
-                        logged && isOnline
-                          ? () => handleUndoSet(current, logged)
-                          : undefined
-                      }
-                      onComplete={(values) =>
-                        handleLogSet(
-                          current,
-                          rowIndex,
-                          prescribed?.setType ?? "working",
-                          values,
-                        )
-                      }
-                    />
-                  );
-                })}
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="touch"
-                  onClick={() =>
-                    setExtraSetsByKey((prev) => ({
-                      ...prev,
-                      [current.key]: (prev[current.key] ?? 0) + 1,
-                    }))
-                  }
-                >
-                  + Serie
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="touch"
-                  onClick={() => {
-                    const nextRow =
-                      current.prescribedSets[current.loggedSets.length]?.targetWeightKg ??
-                      current.lastTimeSets[current.loggedSets.length]?.weightKg ??
-                      null;
-                    setPlateSheetTarget(nextRow);
-                  }}
-                >
-                  Calculadora de discos
-                </Button>
-              </div>
-            </motion.div>
-          </AnimatePresence>
-        ) : (
-          <div className="space-y-3 rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-            <p>Todavía no agregaste ejercicios.</p>
-          </div>
-        )}
-
-        <div className="flex items-center justify-center gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-touch"
-            onClick={() => goTo(currentIndex - 1)}
-            disabled={currentIndex === 0}
-            aria-label="Ejercicio anterior"
-          >
-            <ChevronLeft className="size-5" />
-          </Button>
-          {exercises.map((ex, i) => (
-            <button
-              key={ex.key}
-              type="button"
-              onClick={() => goTo(i)}
-              aria-label={`Ir a ${ex.exercise.nameEs}`}
-              className={`size-2.5 rounded-full transition-colors ${
-                i === currentIndex ? "bg-primary" : "bg-muted"
-              }`}
+      {mode === "focus" ? (
+        <main className="flex flex-1 flex-col px-[18px]">
+          {focusTarget && focusExercise ? (
+            <FocusMode
+              exercise={focusExercise}
+              exerciseIndex={focusTarget.exerciseIndex}
+              totalExercises={exercises.length}
+              rowIndex={focusTarget.rowIndex}
+              totalRowsForExercise={focusTarget.totalRows}
+              incrementKg={Number(settings.defaultIncrementKg)}
+              onSkip={() =>
+                setSkippedKeys((prev) =>
+                  new Set(prev).add(`${focusExercise.key}-${focusTarget.rowIndex}`),
+                )
+              }
+              onComplete={(values) =>
+                handleLogSet(
+                  focusExercise,
+                  focusTarget.rowIndex,
+                  focusExercise.prescribedSets[focusTarget.rowIndex]?.setType ??
+                    "working",
+                  values,
+                )
+              }
             />
-          ))}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-touch"
-            onClick={() => goTo(currentIndex + 1)}
-            disabled={currentIndex >= exercises.length - 1}
-            aria-label="Siguiente ejercicio"
-          >
-            <ChevronRight className="size-5" />
-          </Button>
-        </div>
+          ) : (
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
+              <p className="text-xl font-semibold text-foreground">
+                Completaste todas las series
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Terminá el entrenamiento cuando quieras.
+              </p>
+            </div>
+          )}
+        </main>
+      ) : (
+        <main className="flex-1 space-y-4 p-4">
+          {current ? (
+            <AnimatePresence mode="wait" custom={direction} initial={false}>
+              <motion.div
+                key={current.key}
+                custom={direction}
+                variants={slideVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={springs.smooth}
+                className="space-y-4"
+              >
+                <ExerciseCard
+                  exerciseName={current.exercise.nameEs}
+                  media={current.media}
+                  instructions={current.exercise.instructionsEs}
+                  onOpenDetail={() => setDetailOpen(true)}
+                />
 
-        {isFreeform ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="touch"
-            className="w-full"
-            onClick={() => setPickerOpen(true)}
-          >
-            + Agregar ejercicio
-          </Button>
-        ) : null}
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="text-lg font-bold text-foreground">
+                    {current.exercise.nameEs}
+                  </h2>
+                  {current.supersetGroup != null ? (
+                    <Badge variant="secondary">Superserie {current.supersetGroup}</Badge>
+                  ) : null}
+                </div>
 
-        {!isOnline ? (
-          <p className="text-center text-xs text-muted-foreground">
-            Sin conexión — tus series ya están guardadas y se sincronizan solas. Conectate
-            para terminar el entrenamiento.
-          </p>
-        ) : null}
-      </main>
+                {current.lastTimeSets.length > 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    La última vez:{" "}
+                    {current.lastTimeSets
+                      .map((s) => `${s.weightKg ?? "–"}kg×${s.reps ?? "–"}`)
+                      .join(", ")}
+                  </p>
+                ) : null}
+
+                <div className="space-y-2">
+                  {Array.from({
+                    length: displayCountFor(current, extraSetsByKey[current.key] ?? 0),
+                  }).map((_, rowIndex) => {
+                    const prescribed = current.prescribedSets[rowIndex];
+                    const logged = current.loggedSets[rowIndex];
+                    const locked = !logged && rowIndex !== current.loggedSets.length;
+                    return (
+                      <SetRow
+                        key={rowIndex}
+                        displayNumber={rowIndex + 1}
+                        setType={prescribed?.setType ?? logged?.setType ?? "working"}
+                        prescribed={prescribed}
+                        lastTime={current.lastTimeSets[rowIndex]}
+                        logged={logged}
+                        tracksWeight={current.exercise.tracksWeight}
+                        tracksReps={current.exercise.tracksReps}
+                        locked={locked}
+                        onUndo={
+                          logged && isOnline
+                            ? () => handleUndoSet(current, logged)
+                            : undefined
+                        }
+                        onComplete={(values) =>
+                          handleLogSet(
+                            current,
+                            rowIndex,
+                            prescribed?.setType ?? "working",
+                            values,
+                          )
+                        }
+                      />
+                    );
+                  })}
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="touch"
+                    onClick={() =>
+                      setExtraSetsByKey((prev) => ({
+                        ...prev,
+                        [current.key]: (prev[current.key] ?? 0) + 1,
+                      }))
+                    }
+                  >
+                    + Serie
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="touch"
+                    onClick={() => {
+                      const nextRow =
+                        current.prescribedSets[current.loggedSets.length]
+                          ?.targetWeightKg ??
+                        current.lastTimeSets[current.loggedSets.length]?.weightKg ??
+                        null;
+                      setPlateSheetTarget(nextRow);
+                    }}
+                  >
+                    Calculadora de discos
+                  </Button>
+                </div>
+              </motion.div>
+            </AnimatePresence>
+          ) : (
+            <div className="space-y-3 rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+              <p>Todavía no agregaste ejercicios.</p>
+            </div>
+          )}
+
+          <div className="flex items-center justify-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-touch"
+              onClick={() => goTo(currentIndex - 1)}
+              disabled={currentIndex === 0}
+              aria-label="Ejercicio anterior"
+            >
+              <ChevronLeft className="size-5" />
+            </Button>
+            {exercises.map((ex, i) => (
+              <button
+                key={ex.key}
+                type="button"
+                onClick={() => goTo(i)}
+                aria-label={`Ir a ${ex.exercise.nameEs}`}
+                className={`size-2.5 rounded-full transition-colors ${
+                  i === currentIndex ? "bg-primary" : "bg-muted"
+                }`}
+              />
+            ))}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-touch"
+              onClick={() => goTo(currentIndex + 1)}
+              disabled={currentIndex >= exercises.length - 1}
+              aria-label="Siguiente ejercicio"
+            >
+              <ChevronRight className="size-5" />
+            </Button>
+          </div>
+
+          {isFreeform ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="touch"
+              className="w-full"
+              onClick={() => setPickerOpen(true)}
+            >
+              + Agregar ejercicio
+            </Button>
+          ) : null}
+
+          {!isOnline ? (
+            <p className="text-center text-xs text-muted-foreground">
+              Sin conexión — tus series ya están guardadas y se sincronizan solas.
+              Conectate para terminar el entrenamiento.
+            </p>
+          ) : null}
+        </main>
+      )}
 
       <RestTimer
         hapticsEnabled={settings.hapticsEnabled}
