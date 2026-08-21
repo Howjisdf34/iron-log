@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
-import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PlayerHeader } from "./player-header";
@@ -26,6 +26,7 @@ import { newId } from "@/lib/id";
 import { enqueueSetLog, flushOutbox } from "@/lib/offline/outbox";
 import {
   abandonSessionAction,
+  deleteSetLogAction,
   finishSessionAction,
   getExercisePlayerInfoAction,
   logSetAction,
@@ -124,8 +125,12 @@ export function WorkoutPlayer({
   useWakeLock(settings.keepScreenAwake && summary == null);
 
   const current = exercises[currentIndex];
-  const total = exercises.length;
   const isFreeform = initialData.routineDayId == null;
+  const completedSets = exercises.reduce((sum, ex) => sum + ex.loggedSets.length, 0);
+  const totalSets = exercises.reduce(
+    (sum, ex) => sum + displayCountFor(ex, extraSetsByKey[ex.key] ?? 0),
+    0,
+  );
 
   function goTo(index: number) {
     if (index < 0 || index >= exercises.length) return;
@@ -203,6 +208,17 @@ export function WorkoutPlayer({
     }
   }
 
+  async function handleUndoSet(exercise: PlayerExerciseSlot, loggedSet: PlayerLoggedSet) {
+    await deleteSetLogAction(loggedSet.id);
+    setExercises((prev) =>
+      prev.map((ex) =>
+        ex.key === exercise.key
+          ? { ...ex, loggedSets: ex.loggedSets.filter((s) => s.id !== loggedSet.id) }
+          : ex,
+      ),
+    );
+  }
+
   async function handleConfirmFreeformExercises(newExercises: Exercise[]) {
     const firstNewIndex = exercises.length;
     for (const exercise of newExercises) {
@@ -249,10 +265,13 @@ export function WorkoutPlayer({
     <div className="flex min-h-dvh flex-col pb-28">
       <PlayerHeader
         dayName={initialData.dayName}
-        currentIndex={currentIndex}
-        total={Math.max(total, 1)}
         startedAt={initialData.startedAt}
+        completedSets={completedSets}
+        totalSets={totalSets}
         onExit={handleExit}
+        onFinish={handleFinish}
+        isFinishing={isFinishing}
+        canFinish={isOnline}
       />
 
       <PrToast message={prToast} onDismiss={() => setPrToast(null)} />
@@ -310,10 +329,14 @@ export function WorkoutPlayer({
                       prescribed={prescribed}
                       lastTime={current.lastTimeSets[rowIndex]}
                       logged={logged}
-                      incrementKg={Number(settings.defaultIncrementKg)}
                       tracksWeight={current.exercise.tracksWeight}
                       tracksReps={current.exercise.tracksReps}
                       locked={locked}
+                      onUndo={
+                        logged && isOnline
+                          ? () => handleUndoSet(current, logged)
+                          : undefined
+                      }
                       onComplete={(values) =>
                         handleLogSet(
                           current,
@@ -416,16 +439,6 @@ export function WorkoutPlayer({
             para terminar el entrenamiento.
           </p>
         ) : null}
-        <Button
-          type="button"
-          size="touch"
-          className="w-full"
-          onClick={handleFinish}
-          disabled={isFinishing || !isOnline}
-        >
-          <Sparkles className="size-4" />
-          {isFinishing ? "Guardando…" : "Terminar entrenamiento"}
-        </Button>
       </main>
 
       <RestTimer

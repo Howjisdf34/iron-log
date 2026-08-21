@@ -61,74 +61,72 @@ export function RestTimer({ hapticsEnabled, soundsEnabled }: RestTimerProps) {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 40 }}
           transition={springs.smooth}
-          className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 p-4 backdrop-blur"
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background px-6"
           aria-live="polite"
         >
-          <div className="mx-auto flex max-w-md items-center gap-4">
-            <div className="relative size-24 shrink-0">
-              <svg viewBox="0 0 120 120" className="size-24 -rotate-90">
-                <circle
-                  cx="60"
-                  cy="60"
-                  r={RADIUS}
-                  strokeWidth="8"
-                  className="fill-none stroke-muted"
-                />
-                <motion.circle
-                  cx="60"
-                  cy="60"
-                  r={RADIUS}
-                  strokeWidth="8"
-                  strokeLinecap="round"
-                  className={
-                    isLastMoments
-                      ? "fill-none stroke-destructive"
-                      : "fill-none stroke-primary"
-                  }
-                  strokeDasharray={CIRCUMFERENCE}
-                  animate={{
-                    strokeDashoffset: CIRCUMFERENCE * (1 - Math.min(1, progress)),
-                  }}
-                  transition={{ duration: 0.25, ease: "linear" }}
-                />
-              </svg>
-              <motion.div
-                className="absolute inset-0 flex items-center justify-center text-xl font-bold tabular-nums text-foreground"
-                animate={isLastMoments ? { scale: [1, 1.15, 1] } : { scale: 1 }}
-                transition={
-                  isLastMoments ? { duration: 1, repeat: Infinity } : springs.snappy
-                }
-              >
-                {minutes}:{seconds.toString().padStart(2, "0")}
-              </motion.div>
-            </div>
+          <p className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+            Descanso
+          </p>
 
-            <div className="min-w-0 flex-1 space-y-2">
-              {restLabel ? (
-                <p className="truncate text-sm text-muted-foreground">{restLabel}</p>
-              ) : null}
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="touch"
-                  onClick={() => adjustRest(-15_000)}
-                >
-                  −15s
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="touch"
-                  onClick={() => adjustRest(15_000)}
-                >
-                  +15s
-                </Button>
-                <Button type="button" variant="ghost" size="touch" onClick={clearRest}>
-                  Saltar
-                </Button>
-              </div>
-            </div>
+          <div className="relative flex size-56 shrink-0 items-center justify-center">
+            <svg viewBox="0 0 120 120" className="absolute inset-0 size-56 -rotate-90">
+              <circle
+                cx="60"
+                cy="60"
+                r={RADIUS}
+                strokeWidth="6"
+                className="fill-none stroke-muted"
+              />
+              <motion.circle
+                cx="60"
+                cy="60"
+                r={RADIUS}
+                strokeWidth="6"
+                strokeLinecap="round"
+                className={
+                  isLastMoments
+                    ? "fill-none stroke-destructive"
+                    : "fill-none stroke-primary"
+                }
+                strokeDasharray={CIRCUMFERENCE}
+                animate={{
+                  strokeDashoffset: CIRCUMFERENCE * (1 - Math.min(1, progress)),
+                }}
+                transition={{ duration: 0.25, ease: "linear" }}
+              />
+            </svg>
+            <motion.div
+              className="text-[64px] leading-none font-semibold tracking-[-0.05em] tabular-nums text-foreground sm:text-[96px]"
+              animate={isLastMoments ? { scale: [1, 1.15, 1] } : { scale: 1 }}
+              transition={
+                isLastMoments ? { duration: 1, repeat: Infinity } : springs.snappy
+              }
+            >
+              {minutes}:{seconds.toString().padStart(2, "0")}
+            </motion.div>
+          </div>
+
+          {restLabel ? (
+            <p className="max-w-xs truncate text-[15px] text-ink2">{restLabel}</p>
+          ) : null}
+
+          <div className="mt-2 flex w-full max-w-xs flex-col items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-2xl px-6 py-4 text-base"
+              onClick={() => adjustRest(30_000)}
+            >
+              +30 s
+            </Button>
+            <Button
+              type="button"
+              size="touch"
+              className="w-full rounded-2xl py-5 text-base"
+              onClick={clearRest}
+            >
+              Saltar descanso
+            </Button>
           </div>
         </motion.div>
       )}

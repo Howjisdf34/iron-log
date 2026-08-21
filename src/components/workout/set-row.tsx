@@ -3,9 +3,8 @@
 import { useState } from "react";
 import { motion, type PanInfo } from "motion/react";
 import { Check, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Stepper } from "./stepper";
+import { NumericPadSheet } from "./numeric-pad-sheet";
 import { springs } from "@/lib/motion/springs";
 import { cn } from "@/lib/utils";
 import type { PlayerLoggedSet, PlayerPrescribedSet } from "@/server/workout/player-data";
@@ -32,13 +31,16 @@ interface SetRowProps {
   prescribed?: PlayerPrescribedSet;
   lastTime?: PlayerLoggedSet;
   logged?: PlayerLoggedSet;
-  incrementKg: number;
   tracksWeight: boolean;
   tracksReps: boolean;
   onComplete: (values: SetRowValues) => void;
-  /** Series prescrita todavía no alcanzada — se muestra como vista previa, sin steppers. */
+  /** Undo de una serie ya registrada — sólo disponible online (CLAUDE.md §5.5). */
+  onUndo?: () => void;
+  /** Series prescrita todavía no alcanzada — se muestra como vista previa, sin celdas. */
   locked?: boolean;
 }
+
+type PadField = "weight" | "reps" | "rpe" | null;
 
 function clampReps(n: number): number {
   return Math.max(0, Math.min(200, Math.round(n)));
@@ -49,16 +51,53 @@ function clampRpe(n: number): number {
 
 const SWIPE_THRESHOLD = 80;
 
+function Cell({
+  label,
+  value,
+  suffix,
+  wide = true,
+  onTap,
+}: {
+  label: string;
+  value: number | null;
+  suffix?: string;
+  wide?: boolean;
+  onTap: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onTap}
+      className={cn(
+        "flex flex-col items-center justify-center gap-0.5 rounded-2xl bg-muted py-3",
+        wide ? "flex-1" : "w-16 shrink-0",
+      )}
+    >
+      <span className="text-2xl leading-none font-semibold tabular-nums text-foreground">
+        {value ?? "–"}
+        {value != null && suffix ? (
+          <span className="ml-0.5 text-xs font-normal text-muted-foreground">
+            {suffix}
+          </span>
+        ) : null}
+      </span>
+      <span className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
+        {label}
+      </span>
+    </button>
+  );
+}
+
 export function SetRow({
   displayNumber,
   setType,
   prescribed,
   lastTime,
   logged,
-  incrementKg,
   tracksWeight,
   tracksReps,
   onComplete,
+  onUndo,
   locked = false,
 }: SetRowProps) {
   const [weightKg, setWeightKg] = useState<number | null>(
@@ -70,6 +109,7 @@ export function SetRow({
   const [rpe, setRpe] = useState<number | null>(
     prescribed?.targetRpe ?? lastTime?.rpe ?? null,
   );
+  const [padField, setPadField] = useState<PadField>(null);
 
   const isDone = !!logged && !logged.failed;
   const isFailed = !!logged && logged.failed;
@@ -105,24 +145,22 @@ export function SetRow({
       initial={false}
       animate={{
         backgroundColor: isDone
-          ? "color-mix(in oklch, var(--success), transparent 78%)"
+          ? "var(--success-soft)"
           : isFailed
             ? "color-mix(in oklch, var(--destructive), transparent 82%)"
             : "var(--card)",
         opacity: locked ? 0.5 : 1,
       }}
       transition={springs.smooth}
-      className="space-y-2.5 rounded-xl border border-border/60 px-3 py-2.5"
+      className="flex items-center gap-2.5 rounded-[18px] border border-border/60 px-2.5 py-2"
     >
-      <div className="flex items-center gap-2">
-        <span className="w-6 shrink-0 text-center text-sm font-semibold tabular-nums text-muted-foreground">
-          {displayNumber}
-        </span>
-        <Badge variant="outline" className="shrink-0">
-          {SET_TYPE_LABEL[setType] ?? setType}
-        </Badge>
+      <span className="w-4 shrink-0 text-center text-sm font-semibold tabular-nums text-muted-foreground">
+        {displayNumber}
+      </span>
 
-        {locked ? (
+      {locked ? (
+        <div className="flex flex-1 items-center gap-2">
+          <Badge variant="outline">{SET_TYPE_LABEL[setType] ?? setType}</Badge>
           <span className="flex-1 text-sm tabular-nums text-muted-foreground">
             {prescribed?.targetRepsMin && prescribed.targetRepsMax
               ? `${prescribed.targetRepsMin}-${prescribed.targetRepsMax} reps`
@@ -132,74 +170,72 @@ export function SetRow({
             {prescribed?.targetWeightKg ? ` @ ${prescribed.targetWeightKg}kg` : ""}
             {prescribed?.targetRpe ? ` · RPE ${prescribed.targetRpe}` : ""}
           </span>
-        ) : isSettled ? (
-          <div className="flex flex-1 items-center justify-between gap-2 text-foreground">
-            <span className="tabular-nums">
-              {tracksWeight && logged?.weightKg != null ? `${logged.weightKg} kg` : null}
-              {tracksWeight && tracksReps && logged?.weightKg != null ? " × " : null}
-              {tracksReps && logged?.reps != null ? `${logged.reps} reps` : null}
-              {logged?.rpe != null ? ` · RPE ${logged.rpe}` : ""}
-              {improvedVsLastTime ? " 📈" : ""}
-            </span>
-            {isFailed ? (
-              <X className="size-4 shrink-0 text-destructive" />
-            ) : (
-              <Check className="size-4 shrink-0 text-success" />
-            )}
-          </div>
-        ) : null}
-      </div>
-
-      {!locked && !isSettled ? (
+        </div>
+      ) : isSettled ? (
+        <button
+          type="button"
+          onClick={onUndo}
+          disabled={!onUndo}
+          aria-label={onUndo ? "Deshacer serie" : undefined}
+          className="flex flex-1 items-center justify-between gap-2 text-foreground"
+        >
+          <span className="tabular-nums">
+            {tracksWeight && logged?.weightKg != null ? `${logged.weightKg} kg` : null}
+            {tracksWeight && tracksReps && logged?.weightKg != null ? " × " : null}
+            {tracksReps && logged?.reps != null ? `${logged.reps} reps` : null}
+            {logged?.rpe != null ? ` · RPE ${logged.rpe}` : ""}
+            {improvedVsLastTime ? " 📈" : ""}
+          </span>
+          {isFailed ? (
+            <X className="size-4 shrink-0 text-destructive" />
+          ) : (
+            <Check className="size-4 shrink-0 text-success" />
+          )}
+        </button>
+      ) : (
         <>
-          <div
-            className={cn(
-              "grid gap-2",
-              tracksWeight && tracksReps ? "grid-cols-3" : "grid-cols-2",
-            )}
-          >
+          <div className="flex flex-1 items-center gap-2">
             {tracksWeight && (
-              <Stepper
-                label="kg"
-                value={weightKg}
-                onChange={setWeightKg}
-                step={incrementKg}
-                min={0}
-                max={500}
-                ariaLabel="peso"
-              />
+              <Cell label="kg" value={weightKg} onTap={() => setPadField("weight")} />
             )}
             {tracksReps && (
-              <Stepper
-                label="reps"
-                value={reps}
-                onChange={(v) => setReps(v != null ? clampReps(v) : v)}
-                step={1}
-                min={0}
-                max={100}
-                ariaLabel="repeticiones"
-              />
+              <Cell label="reps" value={reps} onTap={() => setPadField("reps")} />
             )}
-            <Stepper
-              label="RPE"
-              value={rpe}
-              onChange={(v) => setRpe(v != null ? clampRpe(v) : v)}
-              step={0.5}
-              min={1}
-              max={10}
-              ariaLabel="RPE"
-            />
+            <Cell label="RPE" value={rpe} wide={false} onTap={() => setPadField("rpe")} />
           </div>
-          <Button
+          <button
             type="button"
-            size="touch"
-            className="w-full bg-success text-background hover:bg-success/80"
             onClick={handleComplete}
+            aria-label="Completar serie"
+            className="flex size-14 shrink-0 items-center justify-center rounded-[18px] bg-muted text-muted-foreground"
           >
-            <Check className="size-5" /> Completar serie
-          </Button>
+            <Check className="size-[22px]" />
+          </button>
         </>
-      ) : null}
+      )}
+
+      <NumericPadSheet
+        open={padField === "weight"}
+        onOpenChange={(open) => !open && setPadField(null)}
+        context={`Peso · Serie ${displayNumber}`}
+        value={weightKg}
+        onChange={(v) => setWeightKg(v != null ? Math.max(0, Math.min(500, v)) : v)}
+      />
+      <NumericPadSheet
+        open={padField === "reps"}
+        onOpenChange={(open) => !open && setPadField(null)}
+        context={`Reps · Serie ${displayNumber}`}
+        value={reps}
+        allowDecimal={false}
+        onChange={(v) => setReps(v != null ? clampReps(v) : v)}
+      />
+      <NumericPadSheet
+        open={padField === "rpe"}
+        onOpenChange={(open) => !open && setPadField(null)}
+        context={`RPE · Serie ${displayNumber}`}
+        value={rpe}
+        onChange={(v) => setRpe(v != null ? clampRpe(v) : v)}
+      />
     </motion.div>
   );
 }
