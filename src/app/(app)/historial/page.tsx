@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Flame, Trophy } from "lucide-react";
+import { Trophy } from "lucide-react";
 import { db } from "@/db";
 import { requireUserId } from "@/server/auth/session";
 import { listCompletedSessionsForUser } from "@/server/db/history";
@@ -10,8 +10,6 @@ import { getTrainingOverviewForUser } from "@/server/history/overview";
 import { weeklyMuscleVolume } from "@/lib/muscle-volume";
 import { isoWeekKey } from "@/lib/date-buckets";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { TrainingHeatmap } from "@/components/history/heatmap";
 import { MuscleVolumeChart } from "@/components/history/muscle-volume-chart";
 
@@ -54,47 +52,48 @@ export default async function HistorialPage() {
   const recentPrs = prs.slice(0, 8);
 
   return (
-    <main className="mx-auto max-w-2xl space-y-8 p-6 pb-24">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground">Historial</h1>
-        <Link
-          href="/cuerpo"
-          className={buttonVariants({ variant: "outline", size: "sm" })}
-        >
-          Peso corporal
-        </Link>
-      </header>
+    <main className="mx-auto max-w-2xl px-[22px] pt-[18px] pb-[30px]">
+      <h1 className="text-[30px] font-semibold tracking-[-0.03em] text-foreground">
+        Historial
+      </h1>
 
-      <section className="grid grid-cols-2 gap-3">
-        <Card className="gap-1">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Flame className="size-4" />
-            <span className="text-sm">Racha</span>
-          </div>
-          <p className="text-2xl font-bold tabular-nums text-foreground">
-            {overview.streak.current} <span className="text-sm font-normal">días</span>
+      <section className="mt-6 grid grid-cols-2 gap-x-px overflow-hidden rounded-2xl bg-border">
+        <div className="space-y-0.5 bg-background px-1 py-3">
+          <p className="text-[11px] font-semibold tracking-[0.09em] text-muted-foreground uppercase">
+            Racha
+          </p>
+          <p className="text-[40px] leading-none font-semibold tracking-[-0.03em] tabular-nums text-foreground">
+            {overview.streak.current}
+            <span className="ml-1 text-[15px] font-normal text-ink2">días</span>
           </p>
           <p className="text-xs text-muted-foreground">
             Récord: {overview.streak.longest} días
           </p>
-        </Card>
-        <Card className="gap-1">
-          <p className="text-sm text-muted-foreground">Adherencia (7 días)</p>
-          <p className="text-2xl font-bold tabular-nums text-foreground">
-            {overview.adherencePct != null ? `${overview.adherencePct}%` : "—"}
+        </div>
+        <div className="space-y-0.5 bg-background px-1 py-3">
+          <p className="text-[11px] font-semibold tracking-[0.09em] text-muted-foreground uppercase">
+            Adherencia
+          </p>
+          <p className="text-[40px] leading-none font-semibold tracking-[-0.03em] tabular-nums text-foreground">
+            {overview.adherencePct != null ? overview.adherencePct : "—"}
+            {overview.adherencePct != null ? (
+              <span className="ml-1 text-[15px] font-normal text-ink2">%</span>
+            ) : null}
           </p>
           <p className="text-xs text-muted-foreground">vs. días/semana de tu rutina</p>
-        </Card>
+        </div>
       </section>
 
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-muted-foreground">Últimos meses</h2>
+      <section className="mt-8 space-y-2">
+        <h2 className="text-[11px] font-semibold tracking-[0.09em] text-muted-foreground uppercase">
+          Últimos meses
+        </h2>
         <TrainingHeatmap trainingDates={overview.trainingDates} todayKey={todayKey} />
       </section>
 
       {thisWeekVolume.length > 0 ? (
-        <section className="space-y-2">
-          <h2 className="text-sm font-semibold text-muted-foreground">
+        <section className="mt-8 space-y-2">
+          <h2 className="text-[11px] font-semibold tracking-[0.09em] text-muted-foreground uppercase">
             Volumen por músculo esta semana
           </h2>
           <MuscleVolumeChart data={thisWeekVolume} />
@@ -102,59 +101,61 @@ export default async function HistorialPage() {
       ) : null}
 
       {recentPrs.length > 0 ? (
-        <section className="space-y-2">
-          <h2 className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
-            <Trophy className="size-4" /> Records personales
+        <section className="mt-8">
+          <h2 className="flex items-center gap-1.5 text-[11px] font-semibold tracking-[0.09em] text-muted-foreground uppercase">
+            <Trophy className="size-3.5" /> Récords personales
           </h2>
-          <div className="space-y-1">
-            {recentPrs.map((pr) => (
-              <Link
-                key={pr.id}
-                href={`/historial/ejercicio/${pr.exerciseId}`}
-                className="flex items-center justify-between rounded-xl border border-border px-3 py-2 text-sm hover:bg-card"
-              >
-                <span className="text-foreground">{pr.exerciseName}</span>
-                <span className="flex items-center gap-2 text-muted-foreground">
-                  <Badge variant="outline">{pr.type}</Badge>
-                  <span className="tabular-nums">{pr.value}</span>
-                </span>
-              </Link>
-            ))}
-          </div>
+          {recentPrs.map((pr) => (
+            <Link
+              key={pr.id}
+              href={`/historial/ejercicio/${pr.exerciseId}`}
+              className="flex items-center justify-between border-b border-border py-3 last:border-b-0"
+            >
+              <span className="text-[15px] font-medium text-foreground">
+                {pr.exerciseName}
+              </span>
+              <span className="flex items-center gap-2 text-muted-foreground">
+                <Badge variant="outline">{pr.type}</Badge>
+                <span className="tabular-nums text-foreground">{pr.value}</span>
+              </span>
+            </Link>
+          ))}
         </section>
       ) : null}
 
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-muted-foreground">
+      <section className="mt-8">
+        <h2 className="text-[11px] font-semibold tracking-[0.09em] text-muted-foreground uppercase">
           Entrenamientos recientes
         </h2>
         {sessions.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
+          <p className="mt-2 text-sm text-muted-foreground">
             Todavía no completaste ningún entrenamiento.
           </p>
         ) : (
-          <ul className="space-y-1">
-            {sessions.map((session) => (
-              <li key={session.id}>
-                <Link
-                  href={`/historial/${session.id}`}
-                  className="flex items-center justify-between rounded-xl border border-border px-3 py-2 text-sm hover:bg-card"
-                >
-                  <span className="text-foreground">
-                    {session.dayName ?? "Entrenamiento libre"}
-                  </span>
-                  <span className="flex items-center gap-2 text-muted-foreground tabular-nums">
-                    {formatSessionDate(session.startedAt)}
-                    {session.totalVolumeKg ? (
-                      <Badge variant="outline">
-                        {Math.round(Number(session.totalVolumeKg))}kg
-                      </Badge>
-                    ) : null}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          sessions.map((session) => (
+            <Link
+              key={session.id}
+              href={`/historial/${session.id}`}
+              className="flex items-center justify-between border-b border-border py-4 last:border-b-0"
+            >
+              <div>
+                <p className="text-[12px] font-medium text-muted-foreground uppercase">
+                  {formatSessionDate(session.startedAt)}
+                </p>
+                <p className="text-[18px] font-semibold tracking-[-0.02em] text-foreground">
+                  {session.dayName ?? "Entrenamiento libre"}
+                </p>
+              </div>
+              {session.totalVolumeKg ? (
+                <div className="text-right">
+                  <p className="text-xl font-semibold tabular-nums text-foreground">
+                    {Math.round(Number(session.totalVolumeKg))}
+                  </p>
+                  <p className="text-xs text-muted-foreground">volumen</p>
+                </div>
+              ) : null}
+            </Link>
+          ))
         )}
       </section>
     </main>

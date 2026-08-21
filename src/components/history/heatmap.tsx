@@ -33,6 +33,7 @@ export function TrainingHeatmap({
               const day = new Date(weekStart.getTime() + dayIndex * DAY_MS);
               const key = dateKey(day);
               const trained = trainedSet.has(key);
+              const isToday = key === todayKey;
               const isFuture = day.getTime() > today.getTime();
               return (
                 <div
@@ -43,7 +44,9 @@ export function TrainingHeatmap({
                       ? "size-3 rounded-sm bg-transparent"
                       : trained
                         ? "size-3 rounded-sm bg-primary"
-                        : "size-3 rounded-sm bg-muted"
+                        : isToday
+                          ? "size-3 rounded-sm bg-accent-soft"
+                          : "size-3 rounded-sm bg-muted"
                   }
                 />
               );
