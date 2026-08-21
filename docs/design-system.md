@@ -4,26 +4,38 @@ Fuente de verdad visual. Vista viva en `/dev/styleguide` (sólo en `NODE_ENV=dev
 
 ## Dirección de arte
 
-Oscuro por defecto, sin toggle de tema (`user_settings.tema` queda reservado a futuro, no implementado en v1). Alto contraste, "premium gym app".
+**"Editorial silencioso"**: tema claro y oscuro con toggle real (Perfil → Apariencia,
+persistido en `user_settings.theme`, aplicado server-side en `src/app/layout.tsx` para
+evitar flash). Alto contraste, separadores de 1px en vez de tarjetas con borde+sombra —
+la regla central del sistema es que casi nada lleva sombra.
 
 ## Paleta
 
-Definida como custom properties en `src/app/globals.css`. `:root` ya es oscuro — no depende de `.dark` (esa clase queda como alias por si algún componente shadcn la referencia).
+Definida como custom properties en `src/app/globals.css`. `:root` es el tema **claro**,
+`.dark` el **oscuro** — la clase se aplica en `<html>` según `user_settings.theme`, leído
+en el layout raíz.
 
-| Token | Valor | Uso |
-|---|---|---|
-| `--background` | `#0A0A0B` | fondo base |
-| `--card` / `--popover` | `#141416` / `#161618` | superficies elevadas |
-| `--foreground` | `#F4F4F5` | texto principal |
-| `--muted-foreground` | `#A1A1AA` | texto secundario |
-| `--primary` / `--accent` | `#C6FF3D` (lima eléctrico) | **único acento saturado** — CTAs, progreso, PRs, focus ring |
-| `--primary-foreground` | `#0A0A0B` | texto sobre el acento (AA garantizado: negro sobre lima) |
-| `--destructive` | `#FF5449` | fallar serie, errores |
-| `--success` | `#34D399` | confirmaciones secundarias (el acento ya cubre el caso principal) |
-| `--border` / `--input` | blanco 10–14% opacidad | separadores sutiles |
-| `--chart-1..5` | lima, cian, violeta, naranja, gris | series en Recharts — **no** es el "único acento", es paleta cualitativa de datos |
+| Token | Claro | Oscuro | Uso |
+|---|---|---|---|
+| `--background` | `#FCFCFB` | `#0B0B0C` | fondo base |
+| `--card` / `--popover` | `#FFFFFF` | `#141417` | superficies elevadas |
+| `--foreground` | `#101013` | `#F6F6F4` | texto principal y números |
+| `--ink2` | `#5C5C64` | `#A0A0A8` | texto secundario, labels de fila |
+| `--muted-foreground` | `#9C9CA3` | `#6E6E76` | metadatos, hints, etiquetas en mayúscula |
+| `--muted` / `--secondary` | `#F2F2EF` | `#1C1C20` | celdas de input, chips, barras vacías |
+| `--primary` / `--accent` | `#2E6BFF` | `#4C82FF` | **único acento saturado** — CTAs, progreso, PRs, focus ring |
+| `--primary-foreground` | `#FFFFFF` | `#06070A` | texto sobre el acento |
+| `--accent-soft` | `rgba(46,107,255,.10)` | `rgba(76,130,255,.16)` | fondo de tab activa, bloque de PR, heatmap nivel 1 |
+| `--success` | `#16A34A` | `#34D399` | check de serie completada |
+| `--success-soft` | `rgba(22,163,74,.10)` | `rgba(52,211,153,.12)` | tinte de fila de serie completada |
+| `--destructive` | `#DC2626` | `#FF5449` | fallar serie, errores |
+| `--border` / `--input` | negro 9–14% opacidad | blanco 10–14% opacidad | separadores sutiles |
+| `--chart-1..5` | azul (=acento), cian, violeta, naranja, gris | ídem, oscuro | series en Recharts — **no** es el "único acento", es paleta cualitativa de datos |
 
-Regla: el lima se reserva para acciones primarias y momentos de logro. No pintar de lima elementos decorativos o texto largo — pierde jerarquía.
+Regla: el acento se reserva para acciones primarias y momentos de logro. No pintarlo en
+elementos decorativos o texto largo — pierde jerarquía. Regla del sistema: **no usar
+tarjetas con borde + sombra** — separar con `border` de 1px o con aire; sólo dos sombras
+existen en toda la app (CTA hero de Inicio, botón "Serie hecha" del Modo Enfoque).
 
 ## Tipografía
 

@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { Database } from "@/db";
 import { userSettings, type UserSettings } from "@/db/schema";
+import type { UpdateUserSettingsInput } from "@/lib/validation/settings";
 
 export async function getOrCreateUserSettingsForUser(
   db: Database,
@@ -26,4 +27,18 @@ export async function getOrCreateUserSettingsForUser(
     .where(eq(userSettings.userId, userId))
     .limit(1);
   return row!;
+}
+
+export async function updateUserSettings(
+  db: Database,
+  userId: string,
+  patch: UpdateUserSettingsInput,
+): Promise<UserSettings> {
+  await getOrCreateUserSettingsForUser(db, userId);
+  const [updated] = await db
+    .update(userSettings)
+    .set(patch)
+    .where(eq(userSettings.userId, userId))
+    .returning();
+  return updated!;
 }
