@@ -39,12 +39,14 @@ export function ExerciseRow({
 
   return (
     <SortableItem id={routineExercise.id}>
-      <div className="space-y-3 rounded-2xl border border-border bg-card p-3">
+      <div className="space-y-3 rounded-2xl border border-border bg-card p-3.5">
         <div className="flex items-start justify-between gap-2">
-          <p className="font-medium text-foreground">{routineExercise.exercise.nameEs}</p>
+          <p className="text-[17px] font-medium text-foreground">
+            {routineExercise.exercise.nameEs}
+          </p>
           <Button
             type="button"
-            size="icon-sm"
+            size="icon-touch"
             variant="ghost"
             aria-label="Quitar ejercicio"
             onClick={remove}
@@ -68,7 +70,7 @@ export function ExerciseRow({
               value={restSeconds}
               onChange={(e) => setRestSeconds(Number(e.target.value))}
               onBlur={saveMeta}
-              className="h-9 text-sm"
+              className="h-11 text-base"
             />
           </div>
           <div className="space-y-1">
@@ -81,7 +83,7 @@ export function ExerciseRow({
               value={tempo}
               onChange={(e) => setTempo(e.target.value)}
               onBlur={saveMeta}
-              className="h-9 text-sm"
+              className="h-11 text-base"
             />
           </div>
           <div className="space-y-1">
@@ -96,7 +98,7 @@ export function ExerciseRow({
               value={supersetGroup}
               onChange={(e) => setSupersetGroup(e.target.value)}
               onBlur={saveMeta}
-              className="h-9 text-sm"
+              className="h-11 text-base"
             />
           </div>
         </div>

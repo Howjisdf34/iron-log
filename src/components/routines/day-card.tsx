@@ -68,8 +68,10 @@ export function DayCard({
     });
   }
 
-  async function handleSelectExercise(exercise: Exercise) {
-    await addExerciseToDay(day.id, exercise.id);
+  async function handleConfirmExercises(exercises: Exercise[]) {
+    for (const exercise of exercises) {
+      await addExerciseToDay(day.id, exercise.id);
+    }
     router.refresh();
   }
 
@@ -103,14 +105,14 @@ export function DayCard({
         <div className="flex shrink-0 items-center gap-1">
           {exercises.length > 0 ? (
             <form action={startWorkoutAction.bind(null, day.id)}>
-              <Button type="submit" size="sm">
+              <Button type="submit" size="touch">
                 <Play className="size-4" /> Empezar
               </Button>
             </form>
           ) : null}
           <Button
             type="button"
-            size="icon-sm"
+            size="icon-touch"
             variant="ghost"
             aria-label="Eliminar día"
             onClick={handleRemoveDay}
@@ -148,7 +150,8 @@ export function DayCard({
           <Button
             type="button"
             variant="outline"
-            size="sm"
+            size="touch"
+            className="w-full"
             onClick={() => setPickerOpen(true)}
           >
             + Agregar ejercicio
@@ -159,7 +162,7 @@ export function DayCard({
       <ExercisePicker
         open={pickerOpen}
         onOpenChange={setPickerOpen}
-        onSelect={handleSelectExercise}
+        onConfirm={handleConfirmExercises}
       />
     </Card>
   );

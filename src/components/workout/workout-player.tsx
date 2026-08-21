@@ -203,12 +203,15 @@ export function WorkoutPlayer({
     }
   }
 
-  async function handleAddFreeformExercise(exercise: Exercise) {
-    const info = await getExercisePlayerInfoAction(initialData.sessionId, exercise.id);
-    if (!info) return;
-    setExercises((prev) => [...prev, { ...info, order: prev.length }]);
+  async function handleConfirmFreeformExercises(newExercises: Exercise[]) {
+    const firstNewIndex = exercises.length;
+    for (const exercise of newExercises) {
+      const info = await getExercisePlayerInfoAction(initialData.sessionId, exercise.id);
+      if (!info) continue;
+      setExercises((prev) => [...prev, { ...info, order: prev.length }]);
+    }
     setDirection(1);
-    setCurrentIndex(exercises.length);
+    setCurrentIndex(firstNewIndex);
     setPickerOpen(false);
   }
 
@@ -450,7 +453,7 @@ export function WorkoutPlayer({
       <ExercisePicker
         open={pickerOpen}
         onOpenChange={setPickerOpen}
-        onSelect={handleAddFreeformExercise}
+        onConfirm={handleConfirmFreeformExercises}
       />
     </div>
   );

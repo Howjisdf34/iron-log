@@ -86,7 +86,7 @@ export function SetsEditor({
               updateSet(index, { setType: v as RoutineSetInput["setType"] })
             }
           >
-            <SelectTrigger className="h-9 w-32 text-xs">
+            <SelectTrigger className="h-11 w-36 text-sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -101,26 +101,26 @@ export function SetsEditor({
           <div className="flex items-center gap-1">
             <Button
               type="button"
-              size="icon-sm"
+              size="icon-touch"
               variant="outline"
               aria-label="Menos reps"
               onClick={() =>
                 updateSet(index, { targetReps: Math.max(1, (set.targetReps ?? 10) - 1) })
               }
             >
-              <Minus className="size-3" />
+              <Minus className="size-4" />
             </Button>
             <span className="w-10 text-center text-sm tabular-nums text-foreground">
               {set.targetReps ?? "-"}
             </span>
             <Button
               type="button"
-              size="icon-sm"
+              size="icon-touch"
               variant="outline"
               aria-label="Más reps"
               onClick={() => updateSet(index, { targetReps: (set.targetReps ?? 9) + 1 })}
             >
-              <Plus className="size-3" />
+              <Plus className="size-4" />
             </Button>
             <span className="text-xs text-muted-foreground">reps</span>
           </div>
@@ -128,51 +128,51 @@ export function SetsEditor({
           <div className="flex items-center gap-1">
             <Button
               type="button"
-              size="icon-sm"
+              size="icon-touch"
               variant="outline"
               aria-label="Menos RPE"
               onClick={() =>
                 updateSet(index, { targetRpe: Math.max(1, (set.targetRpe ?? 8) - 0.5) })
               }
             >
-              <Minus className="size-3" />
+              <Minus className="size-4" />
             </Button>
             <span className="w-10 text-center text-sm tabular-nums text-foreground">
               {set.targetRpe ?? "-"}
             </span>
             <Button
               type="button"
-              size="icon-sm"
+              size="icon-touch"
               variant="outline"
               aria-label="Más RPE"
               onClick={() =>
                 updateSet(index, { targetRpe: Math.min(10, (set.targetRpe ?? 7) + 0.5) })
               }
             >
-              <Plus className="size-3" />
+              <Plus className="size-4" />
             </Button>
             <span className="text-xs text-muted-foreground">RPE</span>
           </div>
 
           <Button
             type="button"
-            size="icon-sm"
+            size="icon-touch"
             variant="ghost"
             aria-label="Quitar serie"
             className="ml-auto"
             onClick={() => removeSet(index)}
           >
-            <X className="size-3.5" />
+            <X className="size-4" />
           </Button>
         </div>
       ))}
 
       <div className="flex items-center gap-2">
-        <Button type="button" size="sm" variant="outline" onClick={addSet}>
+        <Button type="button" size="touch" variant="outline" onClick={addSet}>
           + Serie
         </Button>
         {isDirty ? (
-          <Button type="button" size="sm" onClick={save} disabled={isSaving}>
+          <Button type="button" size="touch" onClick={save} disabled={isSaving}>
             {isSaving ? "Guardando…" : "Guardar series"}
           </Button>
         ) : null}

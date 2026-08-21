@@ -1,8 +1,19 @@
 import Link from "next/link";
-import { Dumbbell, Heart, RefreshCw, TrendingUp, type LucideIcon } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import {
+  Dumbbell,
+  Heart,
+  MoreHorizontal,
+  RefreshCw,
+  TrendingUp,
+  type LucideIcon,
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 import type { Routine } from "@/db/schema";
 import { archiveRoutine, duplicateRoutine } from "@/server/actions/routines";
 
@@ -20,7 +31,13 @@ const GOAL_ICON: Record<string, LucideIcon> = {
   recomp: RefreshCw,
 };
 
-export function RoutineCard({ routine }: { routine: Routine }) {
+export function RoutineCard({
+  routine,
+  isPrimary = false,
+}: {
+  routine: Routine;
+  isPrimary?: boolean;
+}) {
   async function handleDuplicate() {
     "use server";
     await duplicateRoutine(routine.id);
@@ -33,34 +50,46 @@ export function RoutineCard({ routine }: { routine: Routine }) {
   const GoalIcon = GOAL_ICON[routine.goal] ?? Dumbbell;
 
   return (
-    <Card className="transition-colors active:scale-[0.99]">
-      <Link href={`/rutinas/${routine.id}`} className="flex items-start gap-3">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted">
-          <GoalIcon className="size-5 text-muted-foreground" />
-        </div>
-        <div className="min-w-0">
-          <h2 className="text-lg font-semibold text-foreground">{routine.name}</h2>
-          {routine.description ? (
-            <p className="text-sm text-muted-foreground">{routine.description}</p>
-          ) : null}
-        </div>
+    <div className="border-t border-border py-[22px] first:border-t-0">
+      <div className="flex items-start justify-between gap-2">
+        <Link href={`/rutinas/${routine.id}`} className="min-w-0 flex-1">
+          <h2 className="text-xl font-semibold text-foreground">{routine.name}</h2>
+          <p className="text-[13px] text-muted-foreground">
+            {GOAL_LABEL[routine.goal] ?? routine.goal} · {routine.daysPerWeek} días/semana
+          </p>
+        </Link>
+        <DropdownMenu>
+          <DropdownMenuTrigger className="shrink-0 rounded-lg p-1.5 text-muted-foreground">
+            <MoreHorizontal className="size-[19px]" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <form action={handleDuplicate}>
+              <DropdownMenuItem nativeButton render={<button type="submit" />}>
+                Duplicar
+              </DropdownMenuItem>
+            </form>
+            <form action={handleArchive}>
+              <DropdownMenuItem
+                variant="destructive"
+                nativeButton
+                render={<button type="submit" />}
+              >
+                Archivar
+              </DropdownMenuItem>
+            </form>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      <Link
+        href={`/rutinas/${routine.id}`}
+        className={cn(
+          "mt-3 flex items-center justify-center gap-2 rounded-2xl py-[17px] text-sm font-semibold",
+          isPrimary ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
+        )}
+      >
+        <GoalIcon className="size-4" /> Ver rutina
       </Link>
-      <div className="flex flex-wrap gap-2">
-        <Badge variant="secondary">{GOAL_LABEL[routine.goal] ?? routine.goal}</Badge>
-        <Badge variant="outline">{routine.daysPerWeek} días/semana</Badge>
-      </div>
-      <div className="flex gap-2">
-        <form action={handleDuplicate}>
-          <Button type="submit" size="sm" variant="outline">
-            Duplicar
-          </Button>
-        </form>
-        <form action={handleArchive}>
-          <Button type="submit" size="sm" variant="ghost">
-            Archivar
-          </Button>
-        </form>
-      </div>
-    </Card>
+    </div>
   );
 }

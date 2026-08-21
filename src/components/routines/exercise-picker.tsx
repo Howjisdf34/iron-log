@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
+  Check,
   Dumbbell,
   HeartPulse,
   Move,
@@ -21,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { BodyMap } from "@/components/body-map/body-map";
+import { cn } from "@/lib/utils";
 import { useDebouncedValue } from "@/lib/hooks/use-debounced-value";
 import { searchExercisesAction, listFiltersAction } from "@/server/actions/exercises";
 import type { Exercise } from "@/db/schema";
@@ -46,14 +48,35 @@ const LEVEL_LABEL: Record<string, string> = {
 interface ExercisePickerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSelect: (exercise: Exercise) => void;
+  onConfirm: (exercises: Exercise[]) => void;
 }
 
-export function ExercisePicker({ open, onOpenChange, onSelect }: ExercisePickerProps) {
+export function ExercisePicker({ open, onOpenChange, onConfirm }: ExercisePickerProps) {
   const [query, setQuery] = useState("");
   const [muscleSlug, setMuscleSlug] = useState<string | null>(null);
   const [equipmentSlug, setEquipmentSlug] = useState<string>("");
+  const [selected, setSelected] = useState<Map<string, Exercise>>(new Map());
   const debouncedQuery = useDebouncedValue(query, 250);
+
+  function toggleSelected(exercise: Exercise) {
+    setSelected((prev) => {
+      const next = new Map(prev);
+      if (next.has(exercise.id)) next.delete(exercise.id);
+      else next.set(exercise.id, exercise);
+      return next;
+    });
+  }
+
+  function handleOpenChange(next: boolean) {
+    if (!next) setSelected(new Map());
+    onOpenChange(next);
+  }
+
+  function handleConfirm() {
+    onConfirm(Array.from(selected.values()));
+    setSelected(new Map());
+    onOpenChange(false);
+  }
 
   const filtersQuery = useQuery({
     queryKey: ["exercise-filters"],
@@ -73,10 +96,10 @@ export function ExercisePicker({ open, onOpenChange, onSelect }: ExercisePickerP
   });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="top-auto bottom-0 left-0 flex max-h-[92vh] w-full max-w-none translate-x-0 translate-y-0 flex-col gap-4 rounded-b-none rounded-t-3xl">
         <DialogHeader>
-          <DialogTitle>Agregar ejercicio</DialogTitle>
+          <DialogTitle>Agregar ejercicios</DialogTitle>
         </DialogHeader>
 
         <div className="relative shrink-0">
@@ -120,7 +143,12 @@ export function ExercisePicker({ open, onOpenChange, onSelect }: ExercisePickerP
           </Select>
         </div>
 
-        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
+        <div
+          className={cn(
+            "min-h-0 flex-1 space-y-2 overflow-y-auto",
+            selected.size > 0 && "pb-[104px]",
+          )}
+        >
           {resultsQuery.isLoading ? (
             <div className="space-y-2" aria-label="Buscando ejercicios">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -134,14 +162,13 @@ export function ExercisePicker({ open, onOpenChange, onSelect }: ExercisePickerP
           ) : (
             resultsQuery.data?.map((exercise) => {
               const CategoryIcon = CATEGORY_ICON[exercise.category] ?? Dumbbell;
+              const isSelected = selected.has(exercise.id);
               return (
                 <button
                   key={exercise.id}
                   type="button"
-                  onClick={() => {
-                    onSelect(exercise);
-                    onOpenChange(false);
-                  }}
+                  onClick={() => toggleSelected(exercise)}
+                  aria-pressed={isSelected}
                   className="flex min-h-16 w-full items-center gap-3 rounded-2xl border border-transparent px-3 py-2.5 text-left transition-colors hover:border-border hover:bg-card active:scale-[0.99]"
                 >
                   <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted">
@@ -160,11 +187,34 @@ export function ExercisePicker({ open, onOpenChange, onSelect }: ExercisePickerP
                       ) : null}
                     </span>
                   </div>
+                  <span
+                    className={cn(
+                      "flex size-[30px] shrink-0 items-center justify-center rounded-full border-[1.5px]",
+                      isSelected
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border",
+                    )}
+                  >
+                    {isSelected ? <Check className="size-4" /> : null}
+                  </span>
                 </button>
               );
             })
           )}
         </div>
+
+        {selected.size > 0 ? (
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-background from-[55%] to-transparent p-5 pt-10">
+            <button
+              type="button"
+              onClick={handleConfirm}
+              className="pointer-events-auto w-full rounded-2xl bg-primary py-5 text-base font-semibold text-primary-foreground"
+            >
+              Agregar{" "}
+              {selected.size === 1 ? "1 ejercicio" : `${selected.size} ejercicios`}
+            </button>
+          </div>
+        ) : null}
       </DialogContent>
     </Dialog>
   );
