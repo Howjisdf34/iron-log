@@ -48,7 +48,7 @@ export function BodyMap({ selectedMuscle, onSelectMuscle, className }: BodyMapPr
 
       <svg
         viewBox="0 0 200 400"
-        className="h-80 w-40 touch-manipulation"
+        className="h-96 w-48 touch-manipulation"
         role="group"
         aria-label={`Mapa muscular, vista ${view === "front" ? "frontal" : "posterior"}`}
       >
